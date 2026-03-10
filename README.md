@@ -1,6 +1,16 @@
-# Pokémon Locations
+# **Project:** *pokemon-locations*
 
-Project for SE498 (Software Engineering Capstone) at Chapman University.
+## Group Members
+* Jade Harlev
+* Maha Bhatti
+* Maksim Popov
+
+## Description
+*pokemon-locations* is a project for SE498, the Software Engineering Capstone course at Chapman University.
+
+The project will focus on Pokemon Red and will stay within the content of the game entirely.
+
+See `docs/` for further information regarding what the project is, tech stack, etc.
 
 ## Setup Instructions
 
@@ -26,3 +36,5 @@ Run the project with `docker/podman compose -f docker-compose.debug.yml up -d`
 > The frontend will run at [http://localhost:3000/](localhost:3000)
 
 Stop the project with `docker/podman compose -f docker-compose.debug.yml down`
+
+Subject to the terms in `LICENSE`.

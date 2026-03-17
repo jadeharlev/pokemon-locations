@@ -1,4 +1,5 @@
 using System.Data;
+using Dapper;
 using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,5 +25,12 @@ if (builder.Environment.IsDevelopment())
 }
 
 app.MapGet("/", () => "Hello World!");
+
+app.MapGet("/health/db", async (IDbConnection db) =>
+{
+    db.Open();
+    var result = await db.QuerySingleAsync<int>("SELECT 1");
+    return Results.Ok("Database connected");
+});
 
 app.Run();

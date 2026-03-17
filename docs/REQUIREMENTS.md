@@ -67,3 +67,10 @@
 
 > [!TIP]
 > **ALL of these are to be done in class WITH the exception of the daily stand ups.**
+
+7. Project Themes 
+    - Between website and API, must demonstrate themes and media that group spun for 
+
+> [!IMPORTANT]
+> **Our group is doing POKEMON LOCATIONS**
+

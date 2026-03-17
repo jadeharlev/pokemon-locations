@@ -1,10 +1,12 @@
 using System.Data;
-using Dapper;
 using Npgsql;
+using PokemonLocations.Api.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
 #region Services
+builder.Services.AddScoped<IDatabaseHealthRepository, DatabaseHealthRepository>();
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -26,11 +28,5 @@ if (builder.Environment.IsDevelopment())
 
 app.MapGet("/", () => "Hello World!");
 
-app.MapGet("/health/db", async (IDbConnection db) =>
-{
-    db.Open();
-    var result = await db.QuerySingleAsync<int>("SELECT 1");
-    return Results.Ok("Database connected");
-});
-
+app.MapControllers(); 
 app.Run();

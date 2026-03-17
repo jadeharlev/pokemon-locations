@@ -1,0 +1,49 @@
+# Useful Link: https://learn.microsoft.com/en-us/aspnet/core/security/docker-compose-https?view=aspnetcore-10.0#macos-or-linux
+
+services:
+  api:
+    container_name: PokemonLocations-Api
+    build:
+      context: ./Backend
+      dockerfile: PokemonLocations.Api/Dockerfile
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - ConnectionStrings__Redis=cache:6379
+      - ConnectionStrings__Postgres=Host=db;Port=5432;Database=pokemonlocations;Username=postgres;Password=example
+      - ASPNETCORE_URLS=http://+:8080;https://+:8081
+      - ASPNETCORE_Environment=Development
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    depends_on:
+      - cache
+      - db
+  cache:
+    image: redis:8-alpine
+    container_name: PokemonLocations-Cache
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres
+    container_name: PokemonLocations-DB
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: pokemonlocations
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  redis_data:
+  postgres_data:

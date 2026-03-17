@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.Api", "PokemonLocations.Api\PokemonLocations.Api.csproj", "{961A4181-41E8-4EEA-9860-A5BCEAC5714A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.Api.Tests", "PokemonLocations.Api.Tests\PokemonLocations.Api.Tests.csproj", "{A88A9EC0-A0EA-49CE-A854-849537F15DE9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{961A4181-41E8-4EEA-9860-A5BCEAC5714A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{961A4181-41E8-4EEA-9860-A5BCEAC5714A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{961A4181-41E8-4EEA-9860-A5BCEAC5714A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{961A4181-41E8-4EEA-9860-A5BCEAC5714A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A88A9EC0-A0EA-49CE-A854-849537F15DE9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A88A9EC0-A0EA-49CE-A854-849537F15DE9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A88A9EC0-A0EA-49CE-A854-849537F15DE9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A88A9EC0-A0EA-49CE-A854-849537F15DE9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

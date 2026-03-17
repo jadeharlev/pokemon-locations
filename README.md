@@ -9,11 +9,13 @@ Make sure you already have Docker (and Docker Compose) or Podman, along with the
 ### HTTPS Setup (macOS)
 
 `dotnet dev-certs https -ep ${HOME}/.aspnet/https/aspnetapp.pfx -p password`
+
 `dotnet dev-certs https --trust`
 
 ### HTTPS Setup (Windows)
 
 `dotnet dev-certs https -ep %USERPROFILE%\.aspnet\https\aspnetapp.pfx -p password`
+
 `dotnet dev-certs https --trust`
 
 ## Run Instructions

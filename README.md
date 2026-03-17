@@ -20,8 +20,9 @@ Make sure you already have Docker (and Docker Compose) or Podman, along with the
 
 ## Run Instructions
 
-Run the backend with `docker/podman compose -f docker-compose.debug.yml up -d`
+Run the project with `docker/podman compose -f docker-compose.debug.yml up -d`
 
-> The backend's spec will run at localhost:8081/swagger, and the backend will run at localhost:8081.
+> The backend's spec will run at [https://localhost:8081/swagger](localhost:8081/swagger), and the backend will run at [https://localhost:8081](localhost:8081).
+> The frontend will run at [http://localhost:3000/](localhost:3000)
 
 Stop the project with `docker/podman compose -f docker-compose.debug.yml down`

@@ -10,9 +10,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fecb92f8-8204-48a5-b5ee-804514ed1a43" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.idea.Backend/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.idea.Backend/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/PokemonLocations.Api/Program.cs" beforeDir="false" afterPath="$PROJECT_DIR$/PokemonLocations.Api/Program.cs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/../docker-compose.debug.yml" beforeDir="false" afterPath="$PROJECT_DIR$/../docker-compose.debug.yml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/PokemonLocations.Api.Tests/DBConnectionTest.cs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PokemonLocations.Api.Tests/PokemonLocations.Api.Tests.csproj" beforeDir="false" afterPath="$PROJECT_DIR$/PokemonLocations.Api.Tests/PokemonLocations.Api.Tests.csproj" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -144,7 +143,7 @@
       <workItem from="1756101774752" duration="626000" />
       <workItem from="1772682667492" duration="6107000" />
       <workItem from="1772731637915" duration="428000" />
-      <workItem from="1773715242912" duration="855000" />
+      <workItem from="1773715242912" duration="1204000" />
     </task>
     <task id="LOCAL-00001" summary="Set up environment">
       <option name="closed" value="true" />
@@ -154,7 +153,15 @@
       <option name="project" value="LOCAL" />
       <updated>1773715529549</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="Add DB connection health check endpoint">
+      <option name="closed" value="true" />
+      <created>1773716161956</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1773716161956</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -176,7 +183,8 @@
   <component name="VcsManagerConfiguration">
     <option name="CLEAR_INITIAL_COMMIT_MESSAGE" value="true" />
     <MESSAGE value="Set up environment" />
-    <option name="LAST_COMMIT_MESSAGE" value="Set up environment" />
+    <MESSAGE value="Add DB connection health check endpoint" />
+    <option name="LAST_COMMIT_MESSAGE" value="Add DB connection health check endpoint" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>

@@ -65,5 +65,5 @@
         - Demo / Play tests
         - Sprint retrospectives
 
-> [!HINT]
+> [!TIP]
 > **ALL of these are to be done in class WITH the exception of the daily stand ups.**

@@ -11,14 +11,25 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(corsOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres");
 builder.Services.AddScoped<IDbConnection>(serviceProvider => new NpgsqlConnection(postgresConnectionString));
 #endregion
 
 
 var app = builder.Build();
-    
-app.UseHttpsRedirection();
+
+app.UseCors();
 
 if (builder.Environment.IsDevelopment())
 {

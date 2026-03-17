@@ -44,6 +44,14 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/
 
+  frontend:
+    image: nginx:alpine
+    container_name: PokemonLocations-frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./Frontend:/usr/share/nginx/html:ro
+
 volumes:
   redis_data:
   postgres_data:

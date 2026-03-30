@@ -74,3 +74,47 @@
 > [!IMPORTANT]
 > **Our group is doing POKEMON LOCATIONS**
 
+8. Website Frontend
+    - Spec written in Markdown (`.md`)
+    - Checked into GitHub
+    - Wireframes
+    - Boostrap for Styles
+    - User create account and login
+
+9. Websiite Backend
+    - Spec written in Markdown (`.md`)
+    - Checked into GitHub
+    - Can be RPC
+    - Must use a database in a container
+    - Has unit tests for logic 
+    - Requires basic authentication
+    - Invokes the API project
+
+10. API
+    - Spec written in Markdown (`.md`)
+    - Checked into GitHub
+    - Must be RESTful
+    - Must use a database in a container
+    - Can be built and run inside of a container
+    - Has unit tests for data validation
+    - Requires a bearer token for auth 
+    - Exposes a swagger view
+
+11. GitHub
+    - All merges to main go through a pull request
+    - Unit tests for each project that run on merge and PR
+    - PRs reference JIRA tickets
+
+12. Process
+    - User stories with acceptance criteria authored in Jira
+    - Scrum rituals are being followed
+    - Daily stand up notes in Slack
+
+13. Future Phases
+    - Integrate with another team's API
+    - Monitoring and health checks
+    - AB testing
+    - Localization
+    - TBD 
+
+

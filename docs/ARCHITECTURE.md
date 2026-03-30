@@ -1,6 +1,6 @@
 ## Tech Stack
 
-| **Function** | Choice | 
+| **Function** | **Choice** | 
 | --- | --- | 
 | Database | *Postgres/Reddis* | 
 | Frontend Styling | *Bootstrap* | 

@@ -6,6 +6,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 #region Services
 builder.Services.AddScoped<IDatabaseHealthRepository, DatabaseHealthRepository>();
+builder.Services.AddSingleton<ILocationRepository, InMemoryLocationRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

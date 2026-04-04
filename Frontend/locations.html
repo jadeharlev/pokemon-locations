@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Locations</title>
+  <title>Pokemon Locations - Locations</title>
 
   <script src="script.js" defer></script>
   <link
@@ -152,58 +152,83 @@
       opacity: 1;
     }
 
-    .hero-section {
-      min-height: calc(100vh - 80px);
+    .content-area {
+      padding: 34px 0 60px 0;
+    }
+
+    .search-wrap {
+      width: 56%;
+      max-width: 780px;
+      min-width: 320px;
+      margin: 0 auto 52px auto;
+      background: #d9d9d9;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      padding: 12px 18px;
+      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .search-wrap:hover {
+      background: #c9c9c9;
+    }
+
+    .search-wrap:focus-within {
+      background: #c9c9c9;
+      box-shadow: 0 0 0 3px #9ec5ff;
+    }
+
+    .page-search-icon {
+      font-size: 30px;
+      line-height: 1;
+      margin-right: 12px;
+      color: #111111;
+    }
+
+    .page-search-input {
+      width: 100%;
+      border: none;
+      outline: none;
+      background: transparent;
+      font-size: 28px;
+      color: #111111;
+    }
+
+    .page-search-input::placeholder {
+      color: #111111;
+      opacity: 1;
+    }
+
+    .location-list {
+      width: 64%;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .location-card {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 60px 24px;
-    }
-
-    .hero-card {
-      width: 100%;
-      max-width: 1050px;
-      text-align: center;
-      padding: 56px 48px;
-      background: #ececec;
-      border-radius: 24px;
-    }
-
-    .site-title {
-      font-size: 72px;
-      font-weight: 700;
-      margin-bottom: 28px;
-    }
-
-    .site-description {
-      font-size: 30px;
-      line-height: 1.6;
-      max-width: 900px;
-      margin: 0 auto 40px auto;
-      color: #333333;
-    }
-
-    .browse-button {
-      display: inline-block;
-      background: #2457ff;
-      color: #ffffff;
+      height: 138px;
+      margin-bottom: 18px;
+      background: #d9d9d9;
+      color: #000000;
       text-decoration: none;
-      font-size: 24px;
+      font-size: 66px;
       font-weight: 700;
-      padding: 16px 32px;
-      border-radius: 14px;
       transition: background-color 0.2s ease;
     }
 
-    .browse-button:hover {
-      background: #1b45cc;
-      color: #ffffff;
+    .location-card:hover {
+      background: #bfbfbf;
+      color: #000000;
     }
 
-    .helper-text {
-      margin-top: 24px;
+    .database-note {
+      text-align: center;
       font-size: 18px;
-      color: #555555;
+      color: #444444;
+      margin-top: 22px;
     }
 
     @media (max-width: 992px) {
@@ -237,17 +262,21 @@
         font-size: 17px;
       }
 
-      .site-title {
-        font-size: 50px;
+      .search-wrap {
+        width: 78%;
       }
 
-      .site-description {
+      .location-list {
+        width: 78%;
+      }
+
+      .page-search-input {
         font-size: 22px;
       }
 
-      .browse-button {
-        font-size: 20px;
-        padding: 14px 26px;
+      .location-card {
+        font-size: 42px;
+        height: 110px;
       }
     }
 
@@ -278,25 +307,20 @@
         width: 140px;
       }
 
-      .hero-card {
-        padding: 36px 22px;
+      .search-wrap,
+      .location-list {
+        width: 90%;
+        min-width: 0;
       }
 
-      .site-title {
-        font-size: 38px;
+      .location-card {
+        font-size: 30px;
+        height: 90px;
       }
 
-      .site-description {
-        font-size: 18px;
-      }
-
-      .browse-button {
-        font-size: 18px;
-        width: 100%;
-      }
-
-      .helper-text {
+      .database-note {
         font-size: 16px;
+        padding: 0 16px;
       }
     }
   </style>
@@ -306,9 +330,9 @@
     <nav class="top-nav">
       <div class="nav-row">
         <div class="nav-left">
-          <a href="index.html" class="nav-link-main active">HOME</a>
-          <a href="locations.html" class="nav-link-main">LOCATIONS</a>
-          <a href="#" class="nav-link-main">FAVORITES</a>
+          <a href="index.html" class="nav-link-main">HOME</a>
+          <a href="locations.html" class="nav-link-main active">LOCATIONS</a>
+          <a href="favorites.html" class="nav-link-main">FAVORITES</a>
         </div>
 
         <div class="nav-right">
@@ -327,26 +351,26 @@
               />
             </div>
           </div>
-          <a href="#" class="sign-in-link">Sign In</a>
+          <a href="signin.html" class="sign-in-link">Sign In</a>
         </div>
       </div>
     </nav>
 
-    <main class="hero-section">
-      <div class="hero-card">
-        <h1 class="site-title">Pokemon Locations</h1>
-
-        <p class="site-description">
-          Explore towns and cities from the Pokemon world and learn what buildings
-          are in each location in a simple and organized way.
-        </p>
-
-        <a href="locations.html" class="browse-button">Browse Locations</a>
-
-        <p class="helper-text">
-          Start by viewing available locations and selecting a city to learn more.
-        </p>
+    <main class="content-area">
+      <div class="search-wrap">
+        <span class="page-search-icon">&#128269;</span>
+        <input type="text" class="page-search-input" placeholder="Search" />
       </div>
+
+      <div class="location-list">
+        <a href="#" class="location-card">Pallet Town</a>
+        <a href="#" class="location-card">Viridian City</a>
+        <a href="#" class="location-card">Pewter City</a>
+      </div>
+
+      <p class="database-note">
+        Additional cities and locations will appear here as they are loaded from the database.
+      </p>
     </main>
   </div>
 

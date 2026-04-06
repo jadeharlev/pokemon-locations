@@ -8,6 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddScoped<IDatabaseHealthRepository, DatabaseHealthRepository>();
 builder.Services.AddSingleton<ILocationRepository, InMemoryLocationRepository>();
 builder.Services.AddSingleton<IBuildingRepository, InMemoryBuildingRepository>();
+builder.Services.AddSingleton<IGymRepository, InMemoryGymRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

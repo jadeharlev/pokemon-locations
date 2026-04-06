@@ -21,14 +21,14 @@ The frontend communicates with the backend using **Basic Authentication** over H
 The backend will sit at the center of the app:
 
 ```
-Browser ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ Bearer Token)──▶ API Server
-                                      │                                      │
-                                      ▼                                      ▼
-                                 Web Server DB                           API Database
-                              (users, favorites)                (locations, buildings, gyms, images)
+Website (Browser) ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ Bearer Token)──▶ API Server
+                                                │                                      │
+                                                ▼                                      ▼
+                                          Web Server DB                           API Database
+                                        (users, favorites)                (locations, buildings, gyms, images)
 ```
 
-The frontend (nginx) provies static HTML/CSS/JS files. The browser's JS makes backend requests, which authenticates the user, then sends content requests to the API. The backend owns all **user-specific data** while the API owns all **content/domain data**.
+The frontend (nginx) provides static HTML/CSS/JS files. The browser's JS makes backend requests, which authenticates the user, then sends content requests to the API. The backend owns all **user-specific data** while the API owns all **content/domain data**.
 
 ### 2.1 Database Separation
 

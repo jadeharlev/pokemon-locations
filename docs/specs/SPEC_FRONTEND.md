@@ -45,10 +45,11 @@ The frontend consists of the following pages. Wireframes for each page are locat
 | --- | --- | --- | --- |
 | Home | `index.html` | No | — |
 | Locations List | `locations.html` | No | `locations.png` |
-| Location Detail | `location.html` | No | `location.png`, `location_favorite.png` |
-| Building Detail | `building.html` | No | `building.png`, `building_favorite.png` |
-| My Favorites | `favorites.html` | Yes | `favorite_locations.png` |
-| Sign In / Sign Up | `signin.html` | No | `sign_in_blank.png`, `sign_in_filled.png`, `sign_in_username.png` |
+| Location Detail | `location.html` | No | `location.png`, `location_favorited.png`, `location_not_found.png` |
+| Building Detail | `building.html` | No | `building.png` |
+| My Favorites | `favorites.html` | Yes | `favorites.png`, `favorites_empty.png`, `favorites_not_found.png` |
+| Sign In | `signin.html` | No | `signin.png`, `signin_filled.png`, `signin_err.png`, `signin_pass_empty.png` |
+| Sign Up | `signin.html` | No | `signup.png`, `signup_pass_err.png`, `signup_user_err.png` |
 
 ### 3.1 Home (`index.html`)
 
@@ -93,8 +94,8 @@ Displays detailed information about a single location, including its images and 
 
 **Behavior:**
 - If `locationId` is missing or invalid, display an error message
-- If the backend returns `404`, display a "Location not found" message
-- The favorite button toggles between favorited/unfavorited states. Clicking it calls `POST /favorites/locations/{locationId}` or `DELETE /favorites/locations/{locationId}` on the backend
+- If the backend returns `404`, display a "Location not found" message (see `location_not_found.png`)
+- The favorite button toggles between favorited/unfavorited states (see `location_favorited.png`). Clicking it calls `POST /favorites/locations/{locationId}` or `DELETE /favorites/locations/{locationId}` on the backend
 - The favorite button is only visible if the user is logged in
 
 ### 3.4 Building Detail (`building.html`)
@@ -132,7 +133,8 @@ Displays the logged-in user's favorited locations and buildings.
 **Behavior:**
 - If the user is not logged in, redirect to `signin.html`
 - Clicking the remove button calls `DELETE /favorites/locations/{locationId}` or `DELETE /favorites/buildings/{buildingId}` and removes the item from the displayed list
-- If either favorites list is empty, display a message like "No favorite locations yet"
+- If either favorites list is empty, display a message like "No favorite locations yet" (see `favorites_empty.png`)
+- If a favorited resource no longer exists, handle gracefully (see `favorites_not_found.png`)
 
 ### 3.6 Sign In / Sign Up (`signin.html`)
 
@@ -152,9 +154,10 @@ A combined page for user authentication and account creation.
 **Behavior:**
 - On successful login, store the user's credentials (email/password) for subsequent Basic Auth requests and redirect to the previous page or `index.html`
 - On successful registration, display a success message and prompt the user to sign in
-- If the backend returns `401` on login, display "Invalid email or password"
-- If the backend returns `409` on registration, display "Email already registered"
-- If the backend returns `400`, display the relevant validation errors (e.g., "Password must be at least 8 characters")
+- If the backend returns `401` on login, display "Invalid email or password" (see `signin_err.png`)
+- If the password field is empty on submission, display a validation error (see `signin_pass_empty.png`)
+- If the backend returns `409` on registration, display "Email already registered" (see `signup_user_err.png`)
+- If the backend returns `400` on registration, display the relevant validation errors (e.g., "Password must be at least 8 characters", see `signup_pass_err.png`)
 
 ## 4. Navigation
 

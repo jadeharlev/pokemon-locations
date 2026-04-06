@@ -27,9 +27,9 @@ Website (Browser) ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ 
                                         (users, favorites)              (locations, buildings, gyms, images)
 ```
 
-The application follows a layered architecture with three main components:
+The application follows has layers with three main components:
 
-**Frontend (Website)** — Static HTML, CSS, and JavaScript served by an nginx container. The browser makes `fetch()` calls to the backend using Basic Authentication. Bootstrap 5 is loaded from an external CDN for styling. The frontend never communicates with the API directly.
+**Frontend (Website)** — Static HTML, CSS, and JavaScript served by an nginx container. The browser makes `fetch()` calls to the backend using Basic Authentication. Bootstrap 5 is loaded externally for styling. The frontend never communicates with the API directly.
 
 **Backend (Web Server)** — An ASP.NET 10 server that handles user authentication (Basic Auth), manages user-specific data (accounts, favorites), and proxies content requests to the API using Bearer Token authentication. It has its own PostgreSQL database for user data and connects to Redis for caching.
 

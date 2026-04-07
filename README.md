@@ -37,4 +37,36 @@ Run the project with `docker/podman compose -f docker-compose.debug.yml up -d`
 
 Stop the project with `docker/podman compose -f docker-compose.debug.yml down`
 
+## Troubleshooting
+
+### API container crashes on startup (macOS)
+
+If the `PokemonLocations-Api` container exits immediately after starting, check its logs:
+
+```
+docker/podman logs PokemonLocations-Api
+```
+
+If you see `System.UnauthorizedAccessException: Access to the path '/https/aspnetapp.pfx' is denied` or `System.IO.IOException: Permission denied`, the HTTPS dev certificate is either missing or has incorrect file permissions.
+
+**1. Generate the certificate** (if it doesn't exist):
+
+```
+dotnet dev-certs https -ep ${HOME}/.aspnet/https/aspnetapp.pfx -p password --trust
+```
+
+**2. Fix file permissions** (the cert is often created with owner-only `600` permissions, but the container runs as a non-root user and needs to read the mounted file):
+
+```
+chmod 644 ~/.aspnet/https/aspnetapp.pfx
+```
+
+**3. Restart the API container:**
+
+```
+docker/podman restart PokemonLocations-Api
+```
+
+Verify it's running by checking the logs again — you should see `Now listening on: http://[::]:8080`.
+
 Subject to the terms in `LICENSE`.

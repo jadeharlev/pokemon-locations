@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Locations - Locations</title>
+  <title>Pokemon Locations - Pallet Town</title>
 
   <script src="script.js" defer></script>
   <link
@@ -153,82 +153,125 @@
     }
 
     .content-area {
-      padding: 34px 0 60px 0;
+      padding: 12px 0 60px 0;
     }
 
-    .search-wrap {
+    .back-link {
+      display: inline-block;
+      margin: 0 0 8px 48px;
+      font-size: 28px;
+      text-decoration: none;
+      color: #111111;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: #2457ff;
+    }
+
+    .location-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .location-title {
+      font-size: 64px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .favorite-star {
+      font-size: 56px;
+      color: #d9d9d9;
+      cursor: default;
+    }
+
+    .video-placeholder {
       width: 56%;
       max-width: 780px;
       min-width: 320px;
-      margin: 0 auto 52px auto;
+      height: 240px;
+      margin: 0 auto 36px auto;
       background: #d9d9d9;
-      border-radius: 18px;
-      display: flex;
-      align-items: center;
-      padding: 12px 18px;
-      transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .search-wrap:hover {
-      background: #c9c9c9;
-    }
-
-    .search-wrap:focus-within {
-      background: #c9c9c9;
-      box-shadow: 0 0 0 3px #9ec5ff;
-    }
-
-    .page-search-icon {
-      font-size: 30px;
-      line-height: 1;
-      margin-right: 12px;
-      color: #111111;
-    }
-
-    .page-search-input {
-      width: 100%;
-      border: none;
-      outline: none;
-      background: transparent;
-      font-size: 28px;
-      color: #111111;
-    }
-
-    .page-search-input::placeholder {
-      color: #111111;
-      opacity: 1;
-    }
-
-    .location-list {
-      width: 64%;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .location-card {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 138px;
-      margin-bottom: 18px;
-      background: #d9d9d9;
-      color: #000000;
-      text-decoration: none;
-      font-size: 66px;
+    }
+
+    .play-icon {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 36px 0 36px 64px;
+      border-color: transparent transparent transparent #555555;
+    }
+
+    .detail-section {
+      width: 64%;
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+    }
+
+    .image-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      flex: 0 0 auto;
+    }
+
+    .image-placeholder {
+      width: 90px;
+      height: 90px;
+      background: #ececec;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .image-placeholder svg {
+      width: 48px;
+      height: 48px;
+      color: #999999;
+    }
+
+    .buildings-section {
+      flex: 1;
+    }
+
+    .buildings-heading {
+      font-size: 22px;
       font-weight: 700;
+      margin: 0 0 14px 0;
+    }
+
+    .building-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .building-card {
+      display: block;
+      padding: 14px 18px;
+      background: #d9d9d9;
+      text-decoration: none;
+      color: #2457ff;
+      font-size: 18px;
       transition: background-color 0.2s ease;
     }
 
-    .location-card:hover {
+    .building-card:hover {
       background: #bfbfbf;
-      color: #000000;
     }
 
-    .database-note {
-      text-align: center;
-      font-size: 18px;
-      color: #444444;
-      margin-top: 22px;
+    .building-card.empty {
+      color: transparent;
+      pointer-events: none;
     }
 
     @media (max-width: 992px) {
@@ -262,21 +305,30 @@
         font-size: 17px;
       }
 
-      .search-wrap {
+      .back-link {
+        margin-left: 24px;
+      }
+
+      .location-title {
+        font-size: 44px;
+      }
+
+      .favorite-star {
+        font-size: 40px;
+      }
+
+      .video-placeholder {
+        width: 78%;
+        height: 200px;
+      }
+
+      .detail-section {
         width: 78%;
       }
 
-      .location-list {
-        width: 78%;
-      }
-
-      .page-search-input {
-        font-size: 22px;
-      }
-
-      .location-card {
-        font-size: 42px;
-        height: 110px;
+      .image-placeholder {
+        width: 72px;
+        height: 72px;
       }
     }
 
@@ -307,20 +359,37 @@
         width: 140px;
       }
 
-      .search-wrap,
-      .location-list {
+      .back-link {
+        margin-left: 16px;
+        font-size: 24px;
+      }
+
+      .location-title {
+        font-size: 32px;
+      }
+
+      .favorite-star {
+        font-size: 28px;
+      }
+
+      .video-placeholder {
         width: 90%;
         min-width: 0;
+        height: 160px;
       }
 
-      .location-card {
-        font-size: 30px;
-        height: 90px;
+      .detail-section {
+        width: 90%;
+        flex-direction: column;
       }
 
-      .database-note {
-        font-size: 16px;
-        padding: 0 16px;
+      .image-grid {
+        justify-self: center;
+      }
+
+      .image-placeholder {
+        width: 80px;
+        height: 80px;
       }
     }
   </style>
@@ -357,20 +426,61 @@
     </nav>
 
     <main class="content-area">
-      <div class="search-wrap">
-        <span class="page-search-icon">&#128269;</span>
-        <input type="text" class="page-search-input" placeholder="Search" />
+      <a href="locations.html" class="back-link" aria-label="Back to locations">&larr;</a>
+
+      <div class="location-header">
+        <h1 class="location-title">
+          <span class="favorite-star" aria-label="Favorite">&#9734;</span>
+          Pallet Town
+        </h1>
       </div>
 
-      <div class="location-list">
-        <a href="pallet_town.html" class="location-card">Pallet Town</a>
-        <a href="#" class="location-card">Viridian City</a>
-        <a href="#" class="location-card">Pewter City</a>
+      <div class="video-placeholder" aria-label="Video placeholder">
+        <div class="play-icon"></div>
       </div>
 
-      <p class="database-note">
-        Additional cities and locations will appear here as they are loaded from the database.
-      </p>
+      <div class="detail-section">
+        <div class="image-grid">
+          <div class="image-placeholder">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12,36 24,16 36,36" />
+              <polygon points="22,36 30,22 38,36" />
+              <circle cx="34" cy="14" r="4" />
+            </svg>
+          </div>
+          <div class="image-placeholder">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12,36 24,16 36,36" />
+              <polygon points="22,36 30,22 38,36" />
+              <circle cx="34" cy="14" r="4" />
+            </svg>
+          </div>
+          <div class="image-placeholder">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12,36 24,16 36,36" />
+              <polygon points="22,36 30,22 38,36" />
+              <circle cx="34" cy="14" r="4" />
+            </svg>
+          </div>
+          <div class="image-placeholder">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="12,36 24,16 36,36" />
+              <polygon points="22,36 30,22 38,36" />
+              <circle cx="34" cy="14" r="4" />
+            </svg>
+          </div>
+        </div>
+
+        <div class="buildings-section">
+          <h2 class="buildings-heading">Buildings</h2>
+          <div class="building-list">
+            <a href="#" class="building-card">Player's House</a>
+            <a href="#" class="building-card">Rival's House</a>
+            <a href="#" class="building-card">Professor Oak's Lab</a>
+            <div class="building-card empty">&nbsp;</div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 

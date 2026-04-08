@@ -1,5 +1,8 @@
 # JIRA-##
 
+## Description
+<!-- Brief description of the changes -->
+
 ## Areas Changed
 - [ ] Frontend
 - [ ] Backend

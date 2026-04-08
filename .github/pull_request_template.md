@@ -1,5 +1,8 @@
 # JIRA-##
 
+## Description
+<!-- Brief description of the changes -->
+
 ## Areas Changed
 - [ ] Frontend
 - [ ] Backend
@@ -7,6 +10,7 @@
 - [ ] Documentation
 - [ ] Tests
 - [ ] CI/CD
+- [ ] Housekeeping
 
 ## Test Plan
 <!-- How was this verified? (unit tests, manual testing, etc.) -->

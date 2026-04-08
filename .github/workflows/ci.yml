@@ -13,15 +13,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start containers
-        run: docker compose -f docker-compose.debug.yml up -d db cache
-
-      - name: Wait for Postgres to be ready
-        run: |
-          until docker exec PokemonLocations-DB pg_isready -U postgres; do
-            sleep 2
-          done
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -35,7 +26,3 @@ jobs:
 
       - name: Test
         run: dotnet test Backend/Backend.sln --no-build
-
-      - name: Stop containers
-        if: always()
-        run: docker compose -f docker-compose.debug.yml down -v

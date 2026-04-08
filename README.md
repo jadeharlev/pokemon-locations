@@ -37,6 +37,16 @@ Run the project with `docker/podman compose -f docker-compose.debug.yml up -d`
 
 Stop the project with `docker/podman compose -f docker-compose.debug.yml down`
 
+### Running the API outside the container
+
+To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgres container it depends on:
+
+```
+docker/podman compose -f docker-compose.debug.yml up -d db
+```
+
+The API runs its database migrations automatically on startup (via DbUp), so no manual migration step is required. The API test suite brings up its own Postgres via Testcontainers and does not need the compose `db` service.
+
 ## Troubleshooting
 
 ### API container crashes on startup (macOS)

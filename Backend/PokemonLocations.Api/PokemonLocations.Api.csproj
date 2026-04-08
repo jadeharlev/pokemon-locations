@@ -9,8 +9,8 @@
 
     <ItemGroup>
         <PackageReference Include="Dapper" Version="2.1.66" />
+        <PackageReference Include="dbup-postgresql" Version="7.0.1" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.2" />
-        <PackageReference Include="Microsoft.Extensions.Configuration" Version="10.0.3" />
         <PackageReference Include="Npgsql" Version="10.0.1" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="10.1.4" />
     </ItemGroup>
@@ -22,7 +22,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Data\Models\" />
+      <EmbeddedResource Include="Database\Migrations\*.sql" />
+    </ItemGroup>
+
+    <ItemGroup>
       <Folder Include="Services\" />
     </ItemGroup>
 

@@ -31,9 +31,11 @@ Authorization: Bearer <token>
 
 Token issuance: TBD 
 
-## 3. Schema 
+## 3. Schema
 
 The API maintains a PostgreSQL database containing content/domain data only. User-specific data (accounts, favorites) is managed by the backend's separate database.
+
+Schema is managed as a series of versioned SQL migration scripts under `PokemonLocations.Api/Database/Migrations/`, embedded into the API assembly and applied on application startup via [DbUp](https://dbup.readthedocs.io/). Each script runs at most once per database; re-running the API against an already-migrated database is a no-op. Data access from C# uses Dapper on top of a singleton `NpgsqlDataSource`.
 
 ### 3.1 **Enum:** `building_type`
 

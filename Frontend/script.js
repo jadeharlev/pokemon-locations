@@ -82,7 +82,86 @@ async function loadLocationDetail() {
     }
 }
 
+const BUILDING_TYPE_LABELS = {
+    0: "Gym",
+    1: "Pokemon Center",
+    2: "Poke Mart",
+    3: "Residential",
+    4: "Landmark",
+    5: "Lab"
+};
+
+async function loadBuildingDetail() {
+    const titleEl = document.getElementById("building-name");
+    const detailsList = document.getElementById("building-details");
+    if (!titleEl || !detailsList) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const buildingId = params.get("id");
+    const locationId = params.get("locationId");
+
+    if (!buildingId || !locationId) {
+        titleEl.textContent = "Building not found";
+        return;
+    }
+
+    const backLink = document.getElementById("back-link");
+    if (backLink) {
+        backLink.href = `location.html?id=${locationId}`;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/locations/${locationId}/buildings/${buildingId}`);
+        if (!res.ok) {
+            titleEl.textContent = "Building not found";
+            return;
+        }
+
+        const building = await res.json();
+        titleEl.textContent = building.name;
+        document.title = `Pokemon Locations - ${building.name}`;
+
+        detailsList.replaceChildren();
+
+        const addDetail = (label, value) => {
+            const li = document.createElement("li");
+            const span = document.createElement("span");
+            span.className = "detail-label";
+            span.textContent = label + ": ";
+            li.appendChild(span);
+            li.appendChild(document.createTextNode(value));
+            detailsList.appendChild(li);
+        };
+
+        const typeLabel = BUILDING_TYPE_LABELS[building.buildingType] || "Unknown";
+        addDetail("Type", typeLabel);
+
+        if (building.description) {
+            addDetail("Description", building.description);
+        }
+
+        if (building.landmarkDescription) {
+            addDetail("Landmark", building.landmarkDescription);
+        }
+
+        if (building.gym) {
+            addDetail("Gym Type", building.gym.gymType);
+            addDetail("Badge", building.gym.badgeName);
+            addDetail("Gym Leader", building.gym.gymLeader);
+            addDetail("Gym Order", building.gym.gymOrder);
+        }
+    } catch (error) {
+        detailsList.replaceChildren();
+        const p = document.createElement("p");
+        p.className = "database-note";
+        p.textContent = "Unable to load building details. Please try again later.";
+        detailsList.appendChild(p);
+        console.error("Failed to load building detail:", error.message);
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     loadLocations();
     loadLocationDetail();
+    loadBuildingDetail();
 });

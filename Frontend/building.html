@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Locations - Locations</title>
+  <title>Pokemon Locations</title>
 
   <script src="script.js" defer></script>
   <link
@@ -153,82 +153,80 @@
     }
 
     .content-area {
-      padding: 34px 0 60px 0;
+      padding: 12px 0 60px 0;
     }
 
-    .search-wrap {
+    .back-link {
+      display: inline-block;
+      margin: 0 0 8px 48px;
+      font-size: 28px;
+      text-decoration: none;
+      color: #111111;
+      transition: color 0.2s ease;
+    }
+
+    .back-link:hover {
+      color: #2457ff;
+    }
+
+    .building-header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    .building-title {
+      font-size: 64px;
+      font-weight: 700;
+    }
+
+    .video-placeholder {
       width: 56%;
       max-width: 780px;
       min-width: 320px;
-      margin: 0 auto 52px auto;
+      height: 240px;
+      margin: 0 auto 36px auto;
       background: #d9d9d9;
-      border-radius: 18px;
-      display: flex;
-      align-items: center;
-      padding: 12px 18px;
-      transition: background-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .search-wrap:hover {
-      background: #c9c9c9;
-    }
-
-    .search-wrap:focus-within {
-      background: #c9c9c9;
-      box-shadow: 0 0 0 3px #9ec5ff;
-    }
-
-    .page-search-icon {
-      font-size: 30px;
-      line-height: 1;
-      margin-right: 12px;
-      color: #111111;
-    }
-
-    .page-search-input {
-      width: 100%;
-      border: none;
-      outline: none;
-      background: transparent;
-      font-size: 28px;
-      color: #111111;
-    }
-
-    .page-search-input::placeholder {
-      color: #111111;
-      opacity: 1;
-    }
-
-    .location-list {
-      width: 64%;
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .location-card {
       display: flex;
       align-items: center;
       justify-content: center;
-      height: 138px;
-      margin-bottom: 18px;
-      background: #d9d9d9;
-      color: #000000;
-      text-decoration: none;
-      font-size: 66px;
+    }
+
+    .play-icon {
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 36px 0 36px 64px;
+      border-color: transparent transparent transparent #555555;
+    }
+
+    .details-section {
+      width: 56%;
+      max-width: 780px;
+      min-width: 320px;
+      margin: 0 auto;
+    }
+
+    .details-heading {
+      font-size: 22px;
       font-weight: 700;
-      transition: background-color 0.2s ease;
+      margin: 0 0 14px 0;
     }
 
-    .location-card:hover {
-      background: #bfbfbf;
-      color: #000000;
-    }
-
-    .database-note {
-      text-align: center;
+    .details-list {
+      list-style: disc;
+      padding-left: 24px;
       font-size: 18px;
-      color: #444444;
-      margin-top: 22px;
+      line-height: 1.8;
+      color: #333333;
+    }
+
+    .details-list li {
+      margin-bottom: 4px;
+    }
+
+    .detail-label {
+      font-weight: 700;
+      color: #111111;
     }
 
     @media (max-width: 992px) {
@@ -262,21 +260,21 @@
         font-size: 17px;
       }
 
-      .search-wrap {
+      .back-link {
+        margin-left: 24px;
+      }
+
+      .building-title {
+        font-size: 44px;
+      }
+
+      .video-placeholder {
         width: 78%;
+        height: 200px;
       }
 
-      .location-list {
+      .details-section {
         width: 78%;
-      }
-
-      .page-search-input {
-        font-size: 22px;
-      }
-
-      .location-card {
-        font-size: 42px;
-        height: 110px;
       }
     }
 
@@ -307,20 +305,24 @@
         width: 140px;
       }
 
-      .search-wrap,
-      .location-list {
+      .back-link {
+        margin-left: 16px;
+        font-size: 24px;
+      }
+
+      .building-title {
+        font-size: 32px;
+      }
+
+      .video-placeholder {
         width: 90%;
         min-width: 0;
+        height: 160px;
       }
 
-      .location-card {
-        font-size: 30px;
-        height: 90px;
-      }
-
-      .database-note {
-        font-size: 16px;
-        padding: 0 16px;
+      .details-section {
+        width: 90%;
+        min-width: 0;
       }
     }
   </style>
@@ -331,7 +333,7 @@
       <div class="nav-row">
         <div class="nav-left">
           <a href="index.html" class="nav-link-main">HOME</a>
-          <a href="locations.html" class="nav-link-main active">LOCATIONS</a>
+          <a href="locations.html" class="nav-link-main">LOCATIONS</a>
           <a href="favorites.html" class="nav-link-main">FAVORITES</a>
         </div>
 
@@ -357,12 +359,20 @@
     </nav>
 
     <main class="content-area">
-      <div class="search-wrap">
-        <span class="page-search-icon">&#128269;</span>
-        <input type="text" class="page-search-input" placeholder="Search" />
+      <a id="back-link" href="locations.html" class="back-link" aria-label="Back to location">&larr;</a>
+
+      <div class="building-header">
+        <h1 id="building-name" class="building-title">Loading...</h1>
       </div>
 
-      <div class="location-list">
+      <div class="video-placeholder" aria-label="Video placeholder">
+        <div class="play-icon"></div>
+      </div>
+
+      <div class="details-section">
+        <h2 class="details-heading">Details</h2>
+        <ul id="building-details" class="details-list">
+        </ul>
       </div>
     </main>
   </div>

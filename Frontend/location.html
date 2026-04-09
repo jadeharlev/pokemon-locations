@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Locations - Pallet Town</title>
+  <title>Pokemon Locations</title>
 
   <script src="script.js" defer></script>
   <link
@@ -188,6 +188,14 @@
       cursor: default;
     }
 
+    .location-description {
+      text-align: center;
+      font-size: 20px;
+      color: #333333;
+      max-width: 700px;
+      margin: 12px auto 0 auto;
+    }
+
     .video-placeholder {
       width: 56%;
       max-width: 780px;
@@ -267,11 +275,6 @@
 
     .building-card:hover {
       background: #bfbfbf;
-    }
-
-    .building-card.empty {
-      color: transparent;
-      pointer-events: none;
     }
 
     @media (max-width: 992px) {
@@ -391,6 +394,11 @@
         width: 80px;
         height: 80px;
       }
+
+      .location-description {
+        font-size: 17px;
+        padding: 0 16px;
+      }
     }
   </style>
 </head>
@@ -431,8 +439,9 @@
       <div class="location-header">
         <h1 class="location-title">
           <span class="favorite-star" aria-label="Favorite">&#9734;</span>
-          Pallet Town
+          <span id="location-name">Loading...</span>
         </h1>
+        <p id="location-description" class="location-description"></p>
       </div>
 
       <div class="video-placeholder" aria-label="Video placeholder">
@@ -474,10 +483,6 @@
         <div class="buildings-section">
           <h2 class="buildings-heading">Buildings</h2>
           <div class="building-list">
-            <a href="#" class="building-card">Player's House</a>
-            <a href="#" class="building-card">Rival's House</a>
-            <a href="#" class="building-card">Professor Oak's Lab</a>
-            <div class="building-card empty">&nbsp;</div>
           </div>
         </div>
       </div>

@@ -26,8 +26,9 @@ builder.Services.AddSingleton(dataSource);
 
 builder.Services.AddScoped<IDatabaseHealthRepository, DatabaseHealthRepository>();
 builder.Services.AddScoped<ILocationRepository, DapperLocationRepository>();
-builder.Services.AddSingleton<IBuildingRepository, InMemoryBuildingRepository>();
-builder.Services.AddSingleton<IGymRepository, InMemoryGymRepository>();
+builder.Services.AddScoped<IBuildingRepository, DapperBuildingRepository>();
+builder.Services.AddScoped<IGymRepository, DapperGymRepository>();
+builder.Services.AddScoped<ILocationImageRepository, DapperLocationImageRepository>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

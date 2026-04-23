@@ -51,6 +51,26 @@ services:
       timeout: 3s
       retries: 15
 
+  webserver-db:
+    image: postgres:17
+    container_name: PokemonLocations-WebServer-DB
+    restart: always
+    shm_size: 128mb
+    environment:
+      POSTGRES_DB: pokemonlocations_webserver
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: example
+    ports:
+      - "5433:5432"
+    volumes:
+      - webserver_postgres_data:/var/lib/postgresql/
+      - ./WebServer/Database/Init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pokemonlocations_webserver"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
   frontend:
     image: nginx:alpine
     container_name: PokemonLocations-frontend
@@ -62,3 +82,4 @@ services:
 volumes:
   redis_data:
   postgres_data:
+  webserver_postgres_data:

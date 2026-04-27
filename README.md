@@ -55,6 +55,21 @@ Stop everything with `docker/podman compose -f docker-compose.debug.yml --profil
 
 > ⚠️ **Warning:** Compose only acts on services whose profile is currently active. If you ran `up` with `--profile frontend`, you **must** pass `--profile frontend` to `down` as well — otherwise the frontend container will be left running, and Compose will fail to remove the project network because the frontend is still attached to it. Symptom: `Network pokemonlocations_default  Resource is still in use`.
 
+### Getting an API token
+
+All API endpoints except `GET /health/db` require an HS256 JWT in the `Authorization: Bearer <token>` header. For local development, use the `issue-token.sh` helper, which sets the dev signing key and runs the `PokemonLocations.TokenIssuer` console tool:
+
+```bash
+./issue-token.sh --client team-alpha
+```
+
+`--client` is required and becomes the `sub` claim. `--days` is optional (default `90`). The signed JWT is written to stdout. The script's hardcoded `Jwt__Key` matches the dev key in `docker-compose.debug.yml`, so the resulting token validates against the locally-running API. For non-dev environments, run the issuer directly with the appropriate `Jwt__Key` exported:
+
+```bash
+Jwt__Key="<production-key>" \
+  dotnet run --project Backend/PokemonLocations.TokenIssuer -- --client team-alpha
+```
+
 ### Running the API outside the container
 
 To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgres container it depends on:

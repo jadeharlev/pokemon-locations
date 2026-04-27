@@ -65,6 +65,36 @@ services:
     volumes:
       - ./Frontend:/usr/share/nginx/html:ro
 
+  webserver:
+    container_name: PokemonLocations-WebServer
+    profiles: ["frontend"]
+    build:
+      context: ./Backend
+      dockerfile: PokemonLocations.WebServer/Dockerfile
+    ports:
+      - "3001:8080"
+      - "3002:8081"
+    environment:
+      - ConnectionStrings__Postgres=Host=db;Port=5432;Database=pokemonlocations_webserver;Username=postgres;Password=example
+      - ConnectionStrings__Redis=cache:6379
+      - ASPNETCORE_URLS=http://+:8080;https://+:8081
+      - ASPNETCORE_Environment=Development
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - Jwt__Key=local-dev-jwt-key-must-be-at-least-32-bytes-long-for-hs256!
+      - Jwt__Issuer=pokemon-locations-api
+      - Jwt__Audience=pokemon-locations-clients
+      - PokemonLocationsApi__BaseUrl=http://api:8080
+    volumes:
+      - ~/.aspnet/https:/https:ro
+    depends_on:
+      api:
+        condition: service_started
+      cache:
+        condition: service_started
+      db:
+        condition: service_healthy
+
 volumes:
   redis_data:
   postgres_data:

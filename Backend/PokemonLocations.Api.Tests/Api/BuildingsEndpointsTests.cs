@@ -24,7 +24,7 @@ public class BuildingsEndpointsTests : IAsyncLifetime {
         }
 
         factory = new PokemonLocationsApiFactory(postgres.ConnectionString);
-        client = factory.CreateClient();
+        client = factory.CreateAuthenticatedClient();
     }
 
     public Task DisposeAsync() {

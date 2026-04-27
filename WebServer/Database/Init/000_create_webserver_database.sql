@@ -1,0 +1,1 @@
+CREATE DATABASE pokemonlocations_webserver;

@@ -14,22 +14,42 @@ The **primary consumer** is the web server (backend). The frontend doesn't call 
 
 In line with the rest of the tech stack, everything runs on *ASP.NET 10* with containerization being handled by *Docker/Podman*.
 
-## 2. Authentication 
+## 2. Authentication
 
-All endpoints use **Bearer Token** auth. There is 1 endpoint that does **not** require the bearer token in the `Authorization` header:
+All endpoints use **Bearer Token** auth via signed **HS256 JWT**. The token is supplied in the `Authorization` header:
 
 ```
 Authorization: Bearer <token>
 ```
 
-- `GET /health/db`
+The only endpoint that does **not** require a token is `GET /health/db`.
 
 | **Scenario** | **Response** |
 | --- | --- |
-| Missing token | `401 Unauthorized` | 
-| Invalid or Expired token | `401 Unauthorized` |
+| Missing token | `401 Unauthorized` |
+| Invalid signature, issuer, or audience | `401 Unauthorized` |
+| Expired token (`exp` past) | `401 Unauthorized` |
 
-Token issuance: TBD 
+### 2.1 Expected claims
+
+| **Claim** | **Value** |
+| --- | --- |
+| `iss` | Configured issuer (default `pokemon-locations-api`) |
+| `aud` | Configured audience (default `pokemon-locations-clients`) |
+| `sub` | Identifier of the consuming team/client (e.g. `team-alpha`) |
+| `exp` | Unix timestamp; tokens past expiry are rejected |
+
+The signing key, issuer, and audience are configured on the API via `Jwt:Key`, `Jwt:Issuer`, and `Jwt:Audience` (env vars `Jwt__Key` / `Jwt__Issuer` / `Jwt__Audience`). The key must be at least 32 bytes for HS256.
+
+### 2.2 Token issuance
+
+Tokens are minted offline using the `PokemonLocations.TokenIssuer` console tool, which signs with the same key the API validates against:
+
+```bash
+dotnet run --project Backend/PokemonLocations.TokenIssuer -- --client team-alpha --days 90
+```
+
+`--client` (required) becomes the `sub` claim. `--days` (optional, default `90`) sets the expiry window. The signed JWT is written to stdout. There is no in-API issuance endpoint.
 
 ## 3. Schema
 

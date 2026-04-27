@@ -30,18 +30,34 @@ Make sure you already have Docker (and Docker Compose) or Podman, along with the
 
 ## Run Instructions
 
-Run the project with `docker/podman compose -f docker-compose.debug.yml up -d`
+The Compose file is split into two stacks via Compose profiles:
 
-> The backend's spec will run at [https://localhost:8081/swagger](localhost:8081/swagger), and the backend will run at [https://localhost:8081](localhost:8081).
-> The frontend will run at [http://localhost:3000/](localhost:3000)
+* **API stack (default)**: `api`, `db`, `cache`. The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
+* **Frontend stack**: adds `frontend` (and, in the future, the ASP.NET web server). Activated with `--profile frontend`.
 
-Stop the project with `docker/podman compose -f docker-compose.debug.yml down`
+### API stack only
+
+```bash
+docker/podman compose -f docker-compose.debug.yml up -d
+```
+
+> The API will run at [https://localhost:8081](localhost:8081), with Swagger at [https://localhost:8081/swagger](localhost:8081/swagger).
+
+### Full stack (API + frontend)
+
+```bash
+docker/podman compose -f docker-compose.debug.yml --profile frontend up -d
+```
+
+> The frontend will run at [http://localhost:3000/](localhost:3000).
+
+Stop everything with `docker/podman compose -f docker-compose.debug.yml --profile frontend down` (the `--profile` flag is needed to also stop frontend services).
 
 ### Running the API outside the container
 
 To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgres container it depends on:
 
-```
+```bash
 docker/podman compose -f docker-compose.debug.yml up -d db
 ```
 
@@ -53,7 +69,7 @@ The API runs its database migrations automatically on startup (via DbUp), so no 
 
 If the `PokemonLocations-Api` container exits immediately after starting, check its logs:
 
-```
+```bash
 docker/podman logs PokemonLocations-Api
 ```
 
@@ -61,19 +77,19 @@ If you see `System.UnauthorizedAccessException: Access to the path '/https/aspne
 
 **1. Generate the certificate** (if it doesn't exist):
 
-```
+```bash
 dotnet dev-certs https -ep ${HOME}/.aspnet/https/aspnetapp.pfx -p password --trust
 ```
 
 **2. Fix file permissions** (the cert is often created with owner-only `600` permissions, but the container runs as a non-root user and needs to read the mounted file):
 
-```
+```bash
 chmod 644 ~/.aspnet/https/aspnetapp.pfx
 ```
 
 **3. Restart the API container:**
 
-```
+```bash
 docker/podman restart PokemonLocations-Api
 ```
 

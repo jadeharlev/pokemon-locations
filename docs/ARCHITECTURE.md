@@ -9,7 +9,7 @@
 | Frontend Hosting | *nginx (containerized)* |
 | Backend (Web Server) | *ASP.NET 10* |
 | API | *ASP.NET 10* |
-| Databases | *PostgreSQL (two separate instances, containerized)* |
+| Databases | *PostgreSQL (one container hosting two databases, containerized)* |
 | Caching | *Redis* |
 | Data Access | *Dapper* |
 | Containerization | *Docker/Podman* |
@@ -37,27 +37,26 @@ The application follows has layers with three main components:
 
 ## Database Separation
 
-Two PostgreSQL databases run in separate containers:
+Two PostgreSQL databases run inside a single `postgres:17` container:
 
 | **Database** | **Owns** | **Accessed By** |
 | --- | --- | --- |
-| Web Server DB | Users, favorites | Backend (Web Server) |
-| API Database | Locations, buildings, gyms, location images | API Server |
+| `pokemonlocations_webserver` | Users, favorites | Backend (Web Server) |
+| `pokemonlocations` | Locations, buildings, gyms, location images | API Server |
 
-Favorites in the backend DB reference IDs from the API DB but do not use foreign key constraints across databases. The backend validates existence by calling the API.
+Favorites in the web server DB reference IDs from the API DB but do not use foreign key constraints across databases. The backend validates existence by calling the API.
 
 ## Containers
 
-All services run in Docker containers orchestrated by Docker Compose:
+All services run in Docker containers orchestrated by Docker Compose. The frontend stack (frontend, web server) is gated behind the `frontend` Compose profile — `docker compose up` brings up only the API stack by default.
 
-| **Container** | **Image / Build** | **Port** |
-| --- | --- | --- |
-| Frontend | `nginx:alpine` | `3000` |
-| Backend (Web Server) | ASP.NET 10 (built from source) | `8082` |
-| API Server | ASP.NET 10 (built from source) | `8080` / `8081` (HTTPS) |
-| Web Server DB | `postgres:17` | `5433` |
-| API Database | `postgres:17` | `5432` |
-| Cache | `redis:8-alpine` | `6379` |
+| **Container** | **Image / Build** | **Port** | **Profile** |
+| --- | --- | --- | --- |
+| API Server | ASP.NET 10 (built from source) | `8080` / `8081` (HTTPS) | *(default)* |
+| Database | `postgres:17` (hosts both `pokemonlocations` and `pokemonlocations_webserver`) | `5432` | *(default)* |
+| Cache | `redis:8-alpine` | `6379` | *(default)* |
+| Backend (Web Server) | ASP.NET 10 (built from source) | `8082` | `frontend` |
+| Frontend | `nginx:alpine` | `3000` | `frontend` |
 
 ## Further Reading
 

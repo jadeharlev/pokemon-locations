@@ -1,11 +1,19 @@
 const API_BASE_URL = "http://localhost:8080";
 
+// TEMPORARY: 90-day dev token (expires ~2026-07-25). The web server will replace
+// this once it lands; tracked in SE498-54 PR. Re-mint with ./issue-token.sh.
+const API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmcm9udGVuZC1zdG9wZ2FwIiwibmJmIjoxNzc3MzI5OTI4LCJleHAiOjE3ODUxMDU5MjgsImlzcyI6InBva2Vtb24tbG9jYXRpb25zLWFwaSIsImF1ZCI6InBva2Vtb24tbG9jYXRpb25zLWNsaWVudHMifQ.-mwotqWsEMIosrC_Wh2Tx0zPPQHd_WMdV8NCMvv7CkI";
+
+const apiFetch = (path) => fetch(`${API_BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${API_TOKEN}` }
+});
+
 async function loadLocations() {
     const list = document.querySelector(".location-list");
     if (!list) return;
 
     try {
-        const response = await fetch(`${API_BASE_URL}/locations`);
+        const response = await apiFetch(`/locations`);
         if (!response.ok) throw new Error(`Status: ${response.status}`);
 
         const locations = await response.json();
@@ -43,7 +51,7 @@ async function loadLocationDetail() {
     }
 
     try {
-        const locationRes = await fetch(`${API_BASE_URL}/locations/${id}`);
+        const locationRes = await apiFetch(`/locations/${id}`);
         if (!locationRes.ok) {
             titleEl.textContent = "Location not found";
             buildingList.replaceChildren();
@@ -59,7 +67,7 @@ async function loadLocationDetail() {
             descEl.textContent = location.description;
         }
 
-        const buildingsRes = await fetch(`${API_BASE_URL}/locations/${id}/buildings`);
+        const buildingsRes = await apiFetch(`/locations/${id}/buildings`);
         if (!buildingsRes.ok) throw new Error(`Status: ${buildingsRes.status}`);
 
         const buildings = await buildingsRes.json();
@@ -111,7 +119,7 @@ async function loadBuildingDetail() {
     }
 
     try {
-        const res = await fetch(`${API_BASE_URL}/locations/${locationId}/buildings/${buildingId}`);
+        const res = await apiFetch(`/locations/${locationId}/buildings/${buildingId}`);
         if (!res.ok) {
             titleEl.textContent = "Building not found";
             return;

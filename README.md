@@ -53,6 +53,8 @@ docker/podman compose -f docker-compose.debug.yml --profile frontend up -d
 
 Stop everything with `docker/podman compose -f docker-compose.debug.yml --profile frontend down` (the `--profile` flag is needed to also stop frontend services).
 
+> ⚠️ **Warning:** Compose only acts on services whose profile is currently active. If you ran `up` with `--profile frontend`, you **must** pass `--profile frontend` to `down` as well — otherwise the frontend container will be left running, and Compose will fail to remove the project network because the frontend is still attached to it. Symptom: `Network pokemonlocations_default  Resource is still in use`.
+
 ### Running the API outside the container
 
 To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgres container it depends on:

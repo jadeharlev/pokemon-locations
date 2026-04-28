@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using PokemonLocations.Api.Database;
 using Testcontainers.PostgreSql;
 
@@ -17,7 +18,11 @@ public class PostgresFixture : IAsyncLifetime {
     public async Task InitializeAsync() {
         await container.StartAsync();
         DefaultTypeMap.MatchNamesWithUnderscores = true;
-        var result = MigrationRunner.Run(ConnectionString);
+
+        var result = MigrationRunner.Run(
+            ConnectionString,
+            NullLogger.Instance);
+
         if (!result.Successful) {
             throw new InvalidOperationException("Test DB migration failed", result.Error);
         }

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using PokemonLocations.Api.Controllers;
 using PokemonLocations.Api.Data.Models;
@@ -7,13 +8,22 @@ using PokemonLocations.Api.Repositories;
 namespace PokemonLocations.Api.Tests.Controllers;
 
 public class BuildingsControllerTests {
+    private static BuildingsController CreateController(
+        IBuildingRepository buildingRepo,
+        ILocationRepository locationRepo) {
+        return new BuildingsController(
+            buildingRepo,
+            locationRepo,
+            NullLogger<BuildingsController>.Instance);
+    }
+
     [Fact]
     public async Task GetAllBuildingsReturnsOkWithListOfBuildings() {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
         buildingRepo.GetAllByLocationAsync(1).Returns(new List<Building>());
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetAll(1);
 
@@ -26,7 +36,7 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetAll(1);
 
@@ -40,7 +50,7 @@ public class BuildingsControllerTests {
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pewter City" });
         var expected = new Building { BuildingId = 4, LocationId = 1, Name = "Pewter City Gym", BuildingType = BuildingType.Gym };
         buildingRepo.GetByIdAsync(4).Returns(expected);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetById(1, 4);
 
@@ -54,12 +64,24 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pewter City" });
+
         var expected = new Building {
-            BuildingId = 4, LocationId = 1, Name = "Pewter City Gym", BuildingType = BuildingType.Gym,
-            Gym = new Gym { GymId = 1, BuildingId = 4, GymType = "Rock", BadgeName = "Boulder Badge", GymLeader = "Brock", GymOrder = 1 }
+            BuildingId = 4,
+            LocationId = 1,
+            Name = "Pewter City Gym",
+            BuildingType = BuildingType.Gym,
+            Gym = new Gym {
+                GymId = 1,
+                BuildingId = 4,
+                GymType = "Rock",
+                BadgeName = "Boulder Badge",
+                GymLeader = "Brock",
+                GymOrder = 1
+            }
         };
+
         buildingRepo.GetByIdAsync(4).Returns(expected);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetById(1, 4);
 
@@ -75,7 +97,7 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetById(1, 4);
 
@@ -88,7 +110,7 @@ public class BuildingsControllerTests {
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pewter City" });
         buildingRepo.GetByIdAsync(4).Returns((Building?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.GetById(1, 4);
 
@@ -100,9 +122,14 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
-        var newBuilding = new Building { Name = "Oak's Lab", BuildingType = BuildingType.Lab };
+
+        var newBuilding = new Building {
+            Name = "Oak's Lab",
+            BuildingType = BuildingType.Lab
+        };
+
         buildingRepo.CreateAsync(newBuilding).Returns(1);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Create(1, newBuilding);
 
@@ -119,12 +146,20 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pewter City" });
+
         var newBuilding = new Building {
-            Name = "Pewter City Gym", BuildingType = BuildingType.Gym,
-            Gym = new Gym { GymType = "Rock", BadgeName = "Boulder Badge", GymLeader = "Brock", GymOrder = 1 }
+            Name = "Pewter City Gym",
+            BuildingType = BuildingType.Gym,
+            Gym = new Gym {
+                GymType = "Rock",
+                BadgeName = "Boulder Badge",
+                GymLeader = "Brock",
+                GymOrder = 1
+            }
         };
+
         buildingRepo.CreateAsync(newBuilding).Returns(4);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Create(1, newBuilding);
 
@@ -139,7 +174,7 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Create(1, new Building { Name = "Test" });
 
@@ -150,7 +185,7 @@ public class BuildingsControllerTests {
     public async Task CreateReturnsBadRequestWhenModelStateIsInvalid() {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
         controller.ModelState.AddModelError("Name", "Name is required");
 
         var result = await controller.Create(1, new Building());
@@ -163,10 +198,17 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
-        var building = new Building { BuildingId = 1, LocationId = 1, Name = "Oak's Lab Updated", BuildingType = BuildingType.Lab };
+
+        var building = new Building {
+            BuildingId = 1,
+            LocationId = 1,
+            Name = "Oak's Lab Updated",
+            BuildingType = BuildingType.Lab
+        };
+
         buildingRepo.GetByIdAsync(1).Returns(building);
         buildingRepo.UpdateAsync(building).Returns(true);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Update(1, 1, building);
 
@@ -179,8 +221,14 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns((Location?)null);
-        var building = new Building { BuildingId = 1, LocationId = 1, Name = "Test" };
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+
+        var building = new Building {
+            BuildingId = 1,
+            LocationId = 1,
+            Name = "Test"
+        };
+
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Update(1, 1, building);
 
@@ -193,7 +241,7 @@ public class BuildingsControllerTests {
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
         buildingRepo.GetByIdAsync(1).Returns((Building?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Update(1, 1, new Building { BuildingId = 1 });
 
@@ -204,7 +252,7 @@ public class BuildingsControllerTests {
     public async Task UpdateReturnsBadRequestWhenModelStateIsInvalid() {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
         controller.ModelState.AddModelError("Name", "Name is required");
 
         var result = await controller.Update(1, 1, new Building { BuildingId = 1 });
@@ -219,7 +267,7 @@ public class BuildingsControllerTests {
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
         buildingRepo.GetByIdAsync(1).Returns(new Building { BuildingId = 1, LocationId = 1, Name = "Oak's Lab" });
         buildingRepo.DeleteAsync(1).Returns(true);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Delete(1, 1);
 
@@ -231,7 +279,7 @@ public class BuildingsControllerTests {
         var buildingRepo = Substitute.For<IBuildingRepository>();
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Delete(1, 1);
 
@@ -244,7 +292,7 @@ public class BuildingsControllerTests {
         var locationRepo = Substitute.For<ILocationRepository>();
         locationRepo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
         buildingRepo.GetByIdAsync(1).Returns((Building?)null);
-        var controller = new BuildingsController(buildingRepo, locationRepo);
+        var controller = CreateController(buildingRepo, locationRepo);
 
         var result = await controller.Delete(1, 1);
 

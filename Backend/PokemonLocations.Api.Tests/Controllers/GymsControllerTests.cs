@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using PokemonLocations.Api.Controllers;
 using PokemonLocations.Api.Data.Models;
@@ -7,11 +8,17 @@ using PokemonLocations.Api.Repositories;
 namespace PokemonLocations.Api.Tests.Controllers;
 
 public class GymsControllerTests {
+    private static GymsController CreateController(IGymRepository gymRepo) {
+        return new GymsController(
+            gymRepo,
+            NullLogger<GymsController>.Instance);
+    }
+
     [Fact]
     public async Task GetAllReturnsOkWithListOfGymSummaries() {
         var gymRepo = Substitute.For<IGymRepository>();
         gymRepo.GetAllAsync().Returns(new List<GymSummary>());
-        var controller = new GymsController(gymRepo);
+        var controller = CreateController(gymRepo);
 
         var result = await controller.GetAll();
 
@@ -27,8 +34,9 @@ public class GymsControllerTests {
             new() { GymId = 2, GymOrder = 2, GymLeader = "Misty" },
             new() { GymId = 3, GymOrder = 3, GymLeader = "Lt. Surge" }
         };
+
         gymRepo.GetAllAsync().Returns(gyms);
-        var controller = new GymsController(gymRepo);
+        var controller = CreateController(gymRepo);
 
         var result = await controller.GetAll();
 
@@ -41,6 +49,7 @@ public class GymsControllerTests {
     [Fact]
     public async Task GetByIdReturnsOkWithGymSummaryWhenGymExists() {
         var gymRepo = Substitute.For<IGymRepository>();
+
         var expected = new GymSummary {
             GymId = 1,
             BuildingId = 4,
@@ -52,8 +61,9 @@ public class GymsControllerTests {
             GymLeader = "Brock",
             GymOrder = 1
         };
+
         gymRepo.GetByIdAsync(1).Returns(expected);
-        var controller = new GymsController(gymRepo);
+        var controller = CreateController(gymRepo);
 
         var result = await controller.GetById(1);
 
@@ -66,7 +76,7 @@ public class GymsControllerTests {
     public async Task GetByIdReturnsNotFoundWhenGymDoesNotExist() {
         var gymRepo = Substitute.For<IGymRepository>();
         gymRepo.GetByIdAsync(999).Returns((GymSummary?)null);
-        var controller = new GymsController(gymRepo);
+        var controller = CreateController(gymRepo);
 
         var result = await controller.GetById(999);
 

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using PokemonLocations.Api.Controllers;
 using PokemonLocations.Api.Data.Models;
@@ -9,8 +10,12 @@ namespace PokemonLocations.Api.Tests.Controllers;
 public class LocationImagesControllerTests {
     private static LocationImagesController CreateController(
         ILocationImageRepository imageRepository,
-        ILocationRepository locationRepository) =>
-        new(imageRepository, locationRepository);
+        ILocationRepository locationRepository) {
+        return new LocationImagesController(
+            imageRepository,
+            locationRepository,
+            NullLogger<LocationImagesController>.Instance);
+    }
 
     [Fact]
     public async Task GetAllReturnsOkWithImagesWhenLocationExists() {

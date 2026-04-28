@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PokemonLocations.Api.Database;
 using PokemonLocations.Api.Tests.Infrastructure;
@@ -15,7 +16,7 @@ public class MigrationRunnerTests {
 
     [Fact]
     public async Task RunCreatesAllExpectedTablesAndEnum() {
-        // Migrations have already run as part of fixture inititalization.
+        // Migrations have already run as part of fixture initialization.
         await using var conn = new NpgsqlConnection(postgres.ConnectionString);
         await conn.OpenAsync();
 
@@ -30,12 +31,16 @@ public class MigrationRunnerTests {
 
         var enumExists = await conn.ExecuteScalarAsync<bool>(
             @"SELECT EXISTS(SELECT 1 FROM pg_type WHERE typname = 'building_type')");
+
         Assert.True(enumExists);
     }
 
     [Fact]
     public void RunningMigrationsTwiceIsANoOp() {
-        var first = MigrationRunner.Run(postgres.ConnectionString);
+        var first = MigrationRunner.Run(
+            postgres.ConnectionString,
+            NullLogger.Instance);
+
         Assert.True(first.Successful);
         Assert.Empty(first.Scripts);
     }

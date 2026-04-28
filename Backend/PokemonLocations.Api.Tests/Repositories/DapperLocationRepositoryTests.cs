@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PokemonLocations.Api.Data.Models;
 using PokemonLocations.Api.Repositories;
@@ -26,7 +27,11 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private DapperLocationRepository CreateNewRepository() => new(dataSource);
+    private DapperLocationRepository CreateNewRepository() {
+        return new DapperLocationRepository(
+            dataSource,
+            NullLogger<DapperLocationRepository>.Instance);
+    }
 
     [Fact]
     public async Task CreateAsyncReturnsNewIdGreaterThanZero() {
@@ -60,6 +65,7 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetAllAsyncReturnsAllRowsOrderedByLocationId() {
         var dapperLocationRepository = CreateNewRepository();
+
         await dapperLocationRepository.CreateAsync(NewLocation("A"));
         await dapperLocationRepository.CreateAsync(NewLocation("B"));
         await dapperLocationRepository.CreateAsync(NewLocation("C"));
@@ -82,9 +88,11 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
             Description = "Updated desc",
             VideoUrl = "https://example.com/new.mp4"
         };
+
         var ok = await dapperLocationRepository.UpdateAsync(updated);
 
         Assert.True(ok);
+
         var loaded = await dapperLocationRepository.GetByIdAsync(newId);
         Assert.Equal("New name", loaded!.Name);
         Assert.Equal("Updated desc", loaded.Description);
@@ -94,10 +102,12 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task UpdateAsyncReturnsFalseWhenRowMissing() {
         var dapperLocationRepository = CreateNewRepository();
+
         var ok = await dapperLocationRepository.UpdateAsync(new Location {
             LocationId = 999_999,
             Name = "Ghost"
         });
+
         Assert.False(ok);
     }
 
@@ -115,7 +125,9 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task DeleteAsyncReturnsFalseWhenRowMissing() {
         var dapperLocationRepository = CreateNewRepository();
+
         var ok = await dapperLocationRepository.DeleteAsync(999_999);
+
         Assert.False(ok);
     }
 
@@ -123,6 +135,7 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
     public async Task NullDescriptionAndVideoUrlRoundTrip() {
         var dapperLocationRepository = CreateNewRepository();
         var newId = await dapperLocationRepository.CreateAsync(new Location { Name = "NullsOnly" });
+
         var loaded = await dapperLocationRepository.GetByIdAsync(newId);
 
         Assert.NotNull(loaded);

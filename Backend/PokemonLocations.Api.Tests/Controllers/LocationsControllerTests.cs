@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using PokemonLocations.Api.Controllers;
 using PokemonLocations.Api.Data.Models;
@@ -7,11 +8,17 @@ using PokemonLocations.Api.Repositories;
 namespace PokemonLocations.Api.Tests.Controllers;
 
 public class LocationsControllerTests {
+    private static LocationsController CreateController(ILocationRepository repo) {
+        return new LocationsController(
+            repo,
+            NullLogger<LocationsController>.Instance);
+    }
+
     [Fact]
     public async Task GetAllLocationsReturnsOkWithListOfLocations() {
         var repo = Substitute.For<ILocationRepository>();
         repo.GetAllAsync().Returns(new List<Location>());
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.GetAll();
 
@@ -24,7 +31,7 @@ public class LocationsControllerTests {
         var repo = Substitute.For<ILocationRepository>();
         var expected = new Location { LocationId = 1, Name = "Pallet Town" };
         repo.GetByIdAsync(1).Returns(expected);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.GetById(1);
 
@@ -37,7 +44,7 @@ public class LocationsControllerTests {
     public async Task GetByIdReturnsNotFoundWhenLocationDoesNotExist() {
         var repo = Substitute.For<ILocationRepository>();
         repo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.GetById(1);
 
@@ -49,7 +56,7 @@ public class LocationsControllerTests {
         var repo = Substitute.For<ILocationRepository>();
         var newLocation = new Location { Name = "Viridian City" };
         repo.CreateAsync(newLocation).Returns(1);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.Create(newLocation);
 
@@ -64,7 +71,7 @@ public class LocationsControllerTests {
     [Fact]
     public async Task CreateReturnsBadRequestWhenModelStateIsInvalid() {
         var repo = Substitute.For<ILocationRepository>();
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
         controller.ModelState.AddModelError("Name", "Name is required");
 
         var result = await controller.Create(new Location());
@@ -78,7 +85,7 @@ public class LocationsControllerTests {
         var location = new Location { LocationId = 1, Name = "Pallet Town Updated" };
         repo.GetByIdAsync(1).Returns(location);
         repo.UpdateAsync(location).Returns(true);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.Update(1, location);
 
@@ -91,7 +98,7 @@ public class LocationsControllerTests {
         var repo = Substitute.For<ILocationRepository>();
         var location = new Location { LocationId = 1, Name = "Nonexistent" };
         repo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.Update(1, location);
 
@@ -101,7 +108,7 @@ public class LocationsControllerTests {
     [Fact]
     public async Task UpdateReturnsBadRequestWhenModelStateIsInvalid() {
         var repo = Substitute.For<ILocationRepository>();
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
         controller.ModelState.AddModelError("Name", "Name is required");
 
         var result = await controller.Update(1, new Location { LocationId = 1 });
@@ -114,7 +121,7 @@ public class LocationsControllerTests {
         var repo = Substitute.For<ILocationRepository>();
         repo.GetByIdAsync(1).Returns(new Location { LocationId = 1, Name = "Pallet Town" });
         repo.DeleteAsync(1).Returns(true);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.Delete(1);
 
@@ -125,7 +132,7 @@ public class LocationsControllerTests {
     public async Task DeleteReturnsNotFoundWhenLocationDoesNotExist() {
         var repo = Substitute.For<ILocationRepository>();
         repo.GetByIdAsync(1).Returns((Location?)null);
-        var controller = new LocationsController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.Delete(1);
 

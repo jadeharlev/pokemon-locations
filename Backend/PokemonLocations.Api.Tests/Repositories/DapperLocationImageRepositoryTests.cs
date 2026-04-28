@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PokemonLocations.Api.Data.Models;
 using PokemonLocations.Api.Repositories;
@@ -26,7 +27,11 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private DapperLocationImageRepository CreateNewRepository() => new(dataSource);
+    private DapperLocationImageRepository CreateNewRepository() {
+        return new DapperLocationImageRepository(
+            dataSource,
+            NullLogger<DapperLocationImageRepository>.Instance);
+    }
 
     private async Task<int> SeedLocationAsync(string name = "Test Town") {
         await using var connection = await dataSource.OpenConnectionAsync();
@@ -61,6 +66,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
         var palletId = await SeedLocationAsync("Pallet Town");
         var pewterId = await SeedLocationAsync("Pewter City");
         var repository = CreateNewRepository();
+
         await repository.CreateAsync(NewImage(palletId, "/images/pallet-1.png", 1));
         await repository.CreateAsync(NewImage(palletId, "/images/pallet-2.png", 2));
         await repository.CreateAsync(NewImage(pewterId, "/images/pewter-1.png", 1));
@@ -75,6 +81,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task GetAllByLocationAsyncOrdersImagesByDisplayOrder() {
         var locationId = await SeedLocationAsync();
         var repository = CreateNewRepository();
+
         await repository.CreateAsync(NewImage(locationId, "/images/c.png", 3));
         await repository.CreateAsync(NewImage(locationId, "/images/a.png", 1));
         await repository.CreateAsync(NewImage(locationId, "/images/b.png", 2));
@@ -82,7 +89,8 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
         var images = (await repository.GetAllByLocationAsync(locationId)).ToList();
 
         Assert.Equal(new[] { 1, 2, 3 }, images.Select(i => i.DisplayOrder));
-        Assert.Equal(new[] { "/images/a.png", "/images/b.png", "/images/c.png" },
+        Assert.Equal(
+            new[] { "/images/a.png", "/images/b.png", "/images/c.png" },
             images.Select(i => i.ImageUrl));
     }
 
@@ -99,6 +107,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task GetByIdAsyncReturnsImageWhenItExists() {
         var locationId = await SeedLocationAsync();
         var repository = CreateNewRepository();
+
         var newId = await repository.CreateAsync(
             NewImage(locationId, "/images/overview.png", 1, "Overview"));
 
@@ -120,8 +129,10 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
         var newId = await repository.CreateAsync(NewImage(locationId));
 
         Assert.True(newId > 0);
+
         await using var connection = await dataSource.OpenConnectionAsync();
         var count = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM location_images");
+
         Assert.Equal(1, count);
     }
 
@@ -129,6 +140,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task CreateAsyncAllowsNullCaption() {
         var locationId = await SeedLocationAsync();
         var repository = CreateNewRepository();
+
         var newId = await repository.CreateAsync(NewImage(locationId, caption: null));
 
         var loaded = await repository.GetByIdAsync(newId);
@@ -141,6 +153,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task UpdateAsyncMutatesExistingImageAndReturnsTrue() {
         var locationId = await SeedLocationAsync();
         var repository = CreateNewRepository();
+
         var newId = await repository.CreateAsync(NewImage(locationId, "/images/old.png", 1, "Old"));
 
         var update = new LocationImage {
@@ -150,9 +163,11 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
             DisplayOrder = 5,
             Caption = "New"
         };
+
         var result = await repository.UpdateAsync(update);
 
         Assert.True(result);
+
         var loaded = await repository.GetByIdAsync(newId);
         Assert.Equal("/images/new.png", loaded!.ImageUrl);
         Assert.Equal(5, loaded.DisplayOrder);
@@ -177,6 +192,7 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task DeleteAsyncRemovesImageAndReturnsTrue() {
         var locationId = await SeedLocationAsync();
         var repository = CreateNewRepository();
+
         var newId = await repository.CreateAsync(NewImage(locationId));
 
         var result = await repository.DeleteAsync(newId);

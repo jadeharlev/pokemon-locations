@@ -8,15 +8,24 @@ namespace PokemonLocations.Api.Controllers;
 [Route("[controller]")]
 public class HealthController : ControllerBase {
     private readonly IDatabaseHealthRepository databaseHealthRepository;
-
-    public HealthController(IDatabaseHealthRepository databaseHealthRepository) {
+    private readonly ILogger<HealthController> logger;
+    public HealthController(IDatabaseHealthRepository databaseHealthRepository, ILogger<HealthController> logger) {
         this.databaseHealthRepository = databaseHealthRepository;
+	this.logger = logger;
     }
 
     [HttpGet("db")]
     [AllowAnonymous]
     public async Task<IActionResult> CheckDatabaseHealth() {
+        logger.LogInformation("Checking database health.");
+
         bool success = await databaseHealthRepository.GetHealth();
-        return success ? Ok("Database Connected") : StatusCode(500);
+	if (success) {
+            logger.LogInformation("Database health check passed.");
+            return Ok("Database Connected");
+        }
+
+	logger.LogError("Database health check failed.");
+        return StatusCode(500);
     }
 }

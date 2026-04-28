@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PokemonLocations.Api.Data.Models;
 using PokemonLocations.Api.Repositories;
@@ -30,7 +31,11 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private DapperBuildingRepository CreateNewRepository() => new(dataSource);
+    private DapperBuildingRepository CreateNewRepository() {
+        return new DapperBuildingRepository(
+            dataSource,
+            NullLogger<DapperBuildingRepository>.Instance);
+    }
 
     private async Task<int> SeedLocationAsync(string name = "Test Town") {
         await using var connection = await dataSource.OpenConnectionAsync();
@@ -190,6 +195,7 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
             Description = "Updated description",
             LandmarkDescription = "Updated landmark"
         };
+
         var result = await repository.UpdateAsync(update);
 
         Assert.True(result);
@@ -214,6 +220,7 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
             LandmarkDescription = "A memorial to Brock.",
             Gym = null
         };
+
         var result = await repository.UpdateAsync(update);
 
         Assert.True(result);
@@ -247,6 +254,7 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
                 GymOrder = 2
             }
         };
+
         var result = await repository.UpdateAsync(update);
 
         Assert.True(result);
@@ -281,6 +289,7 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
 
         Assert.True(result);
         Assert.Null(await repository.GetByIdAsync(newId));
+
         await using var connection = await dataSource.OpenConnectionAsync();
         var gymCount = await connection.ExecuteScalarAsync<long>(
             "SELECT COUNT(*) FROM gyms WHERE building_id = @BuildingId",

@@ -1,4 +1,5 @@
 using Dapper;
+using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
 using PokemonLocations.Api.Repositories;
 using PokemonLocations.Api.Tests.Infrastructure;
@@ -25,7 +26,11 @@ public class DapperGymRepositoryTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private DapperGymRepository CreateNewRepository() => new(dataSource);
+    private DapperGymRepository CreateNewRepository() {
+        return new DapperGymRepository(
+            dataSource,
+            NullLogger<DapperGymRepository>.Instance);
+    }
 
     private async Task SeedGymAsync(
         string locationName,
@@ -35,14 +40,17 @@ public class DapperGymRepositoryTests : IAsyncLifetime {
         string gymLeader,
         int gymOrder) {
         await using var connection = await dataSource.OpenConnectionAsync();
+
         var locationId = await connection.ExecuteScalarAsync<int>(
             "INSERT INTO locations (name) VALUES (@Name) RETURNING location_id",
             new { Name = locationName });
+
         var buildingId = await connection.ExecuteScalarAsync<int>(
             @"INSERT INTO buildings (location_id, name, building_type, description)
               VALUES (@LocationId, @Name, 'gym'::building_type, 'A gym.')
               RETURNING building_id",
             new { LocationId = locationId, Name = buildingName });
+
         await connection.ExecuteAsync(
             @"INSERT INTO gyms (building_id, gym_type, badge_name, gym_leader, gym_order)
               VALUES (@BuildingId, @GymType, @BadgeName, @GymLeader, @GymOrder)",
@@ -69,6 +77,7 @@ public class DapperGymRepositoryTests : IAsyncLifetime {
         await SeedGymAsync("Vermilion City", "Vermilion Gym", "Electric", "Thunder Badge", "Lt. Surge", 3);
         await SeedGymAsync("Pewter City", "Pewter Gym", "Rock", "Boulder Badge", "Brock", 1);
         await SeedGymAsync("Cerulean City", "Cerulean Gym", "Water", "Cascade Badge", "Misty", 2);
+
         var repository = CreateNewRepository();
 
         var gyms = (await repository.GetAllAsync()).ToList();
@@ -81,6 +90,7 @@ public class DapperGymRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetAllAsyncIncludesLocationNameAndBuildingNameInSummary() {
         await SeedGymAsync("Pewter City", "Pewter City Gym", "Rock", "Boulder Badge", "Brock", 1);
+
         var repository = CreateNewRepository();
 
         var gyms = (await repository.GetAllAsync()).ToList();
@@ -100,6 +110,7 @@ public class DapperGymRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetByIdAsyncReturnsGymSummaryWhenGymExists() {
         await SeedGymAsync("Cerulean City", "Cerulean City Gym", "Water", "Cascade Badge", "Misty", 2);
+
         var repository = CreateNewRepository();
         var seeded = (await repository.GetAllAsync()).Single();
 

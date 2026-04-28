@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using PokemonLocations.Api.Controllers;
 using PokemonLocations.Api.Repositories;
@@ -6,11 +7,17 @@ using PokemonLocations.Api.Repositories;
 namespace PokemonLocations.Api.Tests.Controllers;
 
 public class HealthControllerTests {
+    private static HealthController CreateController(IDatabaseHealthRepository repo) {
+        return new HealthController(
+            repo,
+            NullLogger<HealthController>.Instance);
+    }
+
     [Fact]
     public async Task GetHealthReturnsOkWhenSuccessful() {
         var repo = Substitute.For<IDatabaseHealthRepository>();
         repo.GetHealth().Returns(true);
-        var controller = new HealthController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.CheckDatabaseHealth();
 
@@ -22,7 +29,7 @@ public class HealthControllerTests {
     public async Task GetHealthReturns500WhenUnsuccessful() {
         var repo = Substitute.For<IDatabaseHealthRepository>();
         repo.GetHealth().Returns(false);
-        var controller = new HealthController(repo);
+        var controller = CreateController(repo);
 
         var result = await controller.CheckDatabaseHealth();
 

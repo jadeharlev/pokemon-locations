@@ -8,6 +8,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.TokenIssue
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.TokenIssuer.Tests", "PokemonLocations.TokenIssuer.Tests\PokemonLocations.TokenIssuer.Tests.csproj", "{F80BBEFF-9160-405F-AA21-3734159165D1}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.WebServer", "PokemonLocations.WebServer\PokemonLocations.WebServer.csproj", "{C5D7791B-EFC7-4652-8C6A-945D75772C3C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PokemonLocations.WebServer.Tests", "PokemonLocations.WebServer.Tests\PokemonLocations.WebServer.Tests.csproj", "{8886E583-57BD-439D-9C43-B694E7E213B8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -66,6 +70,30 @@ Global
 		{F80BBEFF-9160-405F-AA21-3734159165D1}.Release|x64.Build.0 = Release|Any CPU
 		{F80BBEFF-9160-405F-AA21-3734159165D1}.Release|x86.ActiveCfg = Release|Any CPU
 		{F80BBEFF-9160-405F-AA21-3734159165D1}.Release|x86.Build.0 = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|x64.Build.0 = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Debug|x86.Build.0 = Debug|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|x64.ActiveCfg = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|x64.Build.0 = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|x86.ActiveCfg = Release|Any CPU
+		{C5D7791B-EFC7-4652-8C6A-945D75772C3C}.Release|x86.Build.0 = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|x64.Build.0 = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Debug|x86.Build.0 = Debug|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|x64.ActiveCfg = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|x64.Build.0 = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|x86.ActiveCfg = Release|Any CPU
+		{8886E583-57BD-439D-9C43-B694E7E213B8}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

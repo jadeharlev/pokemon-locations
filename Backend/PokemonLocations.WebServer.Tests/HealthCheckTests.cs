@@ -94,7 +94,7 @@ public class HealthCheckTests {
 
     private async Task SeedUserAsync(string email, string password, string displayName) {
         var hasher = new PasswordHasher();
-        var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
+        await using var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
         var repository = new UserRepository(dataSource);
         await repository.CreateAsync(email, hasher.HashPassword(password), displayName);
     }

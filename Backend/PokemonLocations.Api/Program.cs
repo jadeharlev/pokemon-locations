@@ -14,7 +14,14 @@ var builder = WebApplication.CreateBuilder(args);
 var postgresConnectionString = builder.Configuration.GetConnectionString("Postgres")
     ?? throw new InvalidOperationException("Postgres connection string is missing");
 
-var migrationResult = MigrationRunner.Run(postgresConnectionString);
+var migrationLoggerFactory = LoggerFactory.Create(logging => {
+    logging.AddConsole();
+});
+
+var migrationLogger = migrationLoggerFactory.CreateLogger("MigrationRunner");
+
+var migrationResult = MigrationRunner.Run(postgresConnectionString, migrationLogger);
+
 if (!migrationResult.Successful) {
     throw new InvalidOperationException("Database migration failed", migrationResult.Error);
 }

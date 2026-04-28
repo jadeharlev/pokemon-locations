@@ -7,22 +7,34 @@ namespace PokemonLocations.Api.Controllers;
 [Route("[controller]")]
 public class GymsController : ControllerBase {
     private readonly IGymRepository gymRepository;
+    private readonly ILogger<GymsController> logger;
 
-    public GymsController(IGymRepository gymRepository) {
+    public GymsController(IGymRepository gymRepository, ILogger<GymsController> logger) {
         this.gymRepository = gymRepository;
+	this.logger = logger;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAll() {
+        logger.LogInformation("Getting all gyms.");
+
         var gyms = await gymRepository.GetAllAsync();
-        return Ok(gyms);
+        
+	logger.LogInformation("All gyms retrieved.");
+	return Ok(gyms);
     }
 
     [HttpGet("{gymId}")]
     public async Task<IActionResult> GetById(int gymId) {
-        var gym = await gymRepository.GetByIdAsync(gymId);
-        if (gym == null) return NotFound();
-
+	logger.LogInformation("Getting gym with ID {GymId}.", gymId);
+        
+	var gym = await gymRepository.GetByIdAsync(gymId);
+        if (gym == null)
+	{
+		logger.LogWarning("Gym with ID {GymId} was not found.", gymId);
+ 		return NotFound();
+	}
+	logger.LogInformation("Successfully retrieved all gyms.");
         return Ok(gym);
     }
 }

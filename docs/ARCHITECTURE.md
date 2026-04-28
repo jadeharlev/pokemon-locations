@@ -24,14 +24,14 @@ Website (Browser) ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ 
                                                 │                                      │
                                                 ▼                                      ▼
                                           Web Server DB                           API Database
-                                        (users, favorites)              (locations, buildings, gyms, images)
+                              (users; per-user state in follow-ups)     (locations, buildings, gyms, images)
 ```
 
 The application follows has layers with three main components:
 
 **Frontend (Website)** — Static HTML, CSS, and JavaScript served by an nginx container. The browser makes `fetch()` calls to the backend using Basic Authentication. Bootstrap 5 is loaded externally for styling. The frontend never communicates with the API directly.
 
-**Backend (Web Server)** — An ASP.NET 10 server that handles user authentication (Basic Auth), manages user-specific data (accounts, favorites), and proxies content requests to the API using Bearer Token authentication. It has its own PostgreSQL database for user data and connects to Redis for caching.
+**Backend (Web Server)** — An ASP.NET 10 server that handles user authentication (HTTP Basic Auth, stateless), manages user-specific data (accounts and per-user state such as visited locations, earned badges, and per-location notes), and proxies content requests to the API using a self-minted Bearer JWT. Passwords are hashed with BCrypt. It has its own PostgreSQL database for user data and connects to Redis for caching API responses.
 
 **API Server** — An ASP.NET 10 RESTful API that provides CRUD operations for all content/domain data: locations, buildings, gyms, and location images. It has its own separate PostgreSQL database and exposes a Swagger view for documentation.
 
@@ -41,10 +41,10 @@ Two PostgreSQL databases run inside a single `postgres:17` container:
 
 | **Database** | **Owns** | **Accessed By** |
 | --- | --- | --- |
-| `pokemonlocations_webserver` | Users, favorites | Backend (Web Server) |
+| `pokemonlocations_webserver` | Users (with `display_name` and `theme`); per-user state added in follow-up tickets (visited locations/buildings, earned badges, per-location notes, uploaded images) | Backend (Web Server) |
 | `pokemonlocations` | Locations, buildings, gyms, location images | API Server |
 
-Favorites in the web server DB reference IDs from the API DB but do not use foreign key constraints across databases. The backend validates existence by calling the API.
+Per-user rows in the web server DB reference IDs from the API DB but do not use foreign key constraints across databases. The backend validates existence by calling the API before accepting writes.
 
 ## Containers
 
@@ -55,7 +55,7 @@ All services run in Docker containers orchestrated by Docker Compose. The fronte
 | API Server | ASP.NET 10 (built from source) | `8080` / `8081` (HTTPS) | *(default)* |
 | Database | `postgres:17` (hosts both `pokemonlocations` and `pokemonlocations_webserver`) | `5432` | *(default)* |
 | Cache | `redis:8-alpine` | `6379` | *(default)* |
-| Backend (Web Server) | ASP.NET 10 (built from source) | `8082` | `frontend` |
+| Backend (Web Server) | ASP.NET 10 (built from source) | `3001` / `3002` (HTTPS) | `frontend` |
 | Frontend | `nginx:alpine` | `3000` | `frontend` |
 
 ## Further Reading

@@ -4,7 +4,7 @@ using PokemonLocations.WebServer.Models;
 
 namespace PokemonLocations.WebServer.Database.Repositories;
 
-public class UserRepository {
+public class UserRepository : IUserRepository {
     private readonly NpgsqlDataSource dataSource;
 
     public UserRepository(NpgsqlDataSource dataSource) {

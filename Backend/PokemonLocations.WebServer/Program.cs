@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -6,6 +5,7 @@ using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database;
 using PokemonLocations.WebServer.Database.Repositories;
+using idunno.Authentication.Basic;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,8 +24,9 @@ Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 
 var dataSource = NpgsqlDataSource.Create(postgresConnectionString);
 builder.Services.AddSingleton(dataSource);
-builder.Services.AddSingleton<UserRepository>();
+builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<PasswordHasher>();
+builder.Services.AddSingleton<BasicAuthCredentialValidator>();
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is missing");
@@ -54,21 +55,22 @@ builder.Services.AddStackExchangeRedisCache(options => {
 });
 
 builder.Services
-    .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-    .AddCookie(options => {
-        options.Cookie.Name = "PokemonLocations.Auth";
-        options.Cookie.HttpOnly = true;
-        options.Cookie.SameSite = SameSiteMode.Strict;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-        options.ExpireTimeSpan = TimeSpan.FromDays(14);
-        options.SlidingExpiration = true;
-        options.Events.OnRedirectToLogin = context => {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
-        };
-        options.Events.OnRedirectToAccessDenied = context => {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
+    .AddAuthentication(BasicAuthenticationDefaults.AuthenticationScheme)
+    .AddBasic(options => {
+        options.Realm = "PokemonLocations";
+        options.AllowInsecureProtocol = builder.Environment.IsDevelopment();
+        options.Events = new BasicAuthenticationEvents {
+            OnValidateCredentials = async context => {
+                var validator = context.HttpContext.RequestServices
+                    .GetRequiredService<BasicAuthCredentialValidator>();
+                var result = await validator.ValidateAsync(context.Username, context.Password);
+                if (result.Success && result.Principal is not null) {
+                    context.Principal = result.Principal;
+                    context.Success();
+                } else {
+                    context.NoResult();
+                }
+            }
         };
     });
 

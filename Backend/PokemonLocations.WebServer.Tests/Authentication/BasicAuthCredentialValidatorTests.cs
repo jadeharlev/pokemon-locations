@@ -10,17 +10,20 @@ public class BasicAuthCredentialValidatorTests {
     private readonly IUserRepository userRepository = Substitute.For<IUserRepository>();
     private readonly PasswordHasher passwordHasher = new();
 
-    [Fact]
-    public async Task ValidateAsyncReturnsSuccessForMatchingCredentials() {
-        var hash = passwordHasher.HashPassword("pikachu123");
+    private void SeedRed(string password) {
         var user = new User {
             UserId = 7,
             Email = "red@example.com",
-            PasswordHash = hash,
+            PasswordHash = passwordHasher.HashPassword(password),
             DisplayName = "Red",
             Theme = "bulbasaur"
         };
         userRepository.GetByEmailAsync("red@example.com").Returns(user);
+    }
+
+    [Fact]
+    public async Task ValidateAsyncReturnsSuccessForMatchingCredentials() {
+        SeedRed("pikachu123");
         var validator = new BasicAuthCredentialValidator(userRepository, passwordHasher);
 
         var result = await validator.ValidateAsync("red@example.com", "pikachu123");
@@ -33,12 +36,7 @@ public class BasicAuthCredentialValidatorTests {
 
     [Fact]
     public async Task ValidateAsyncReturnsFailureForWrongPassword() {
-        var hash = passwordHasher.HashPassword("pikachu123");
-        var user = new User {
-            UserId = 7, Email = "red@example.com", PasswordHash = hash,
-            DisplayName = "Red", Theme = "bulbasaur"
-        };
-        userRepository.GetByEmailAsync("red@example.com").Returns(user);
+        SeedRed("pikachu123");
         var validator = new BasicAuthCredentialValidator(userRepository, passwordHasher);
 
         var result = await validator.ValidateAsync("red@example.com", "wrong-password");

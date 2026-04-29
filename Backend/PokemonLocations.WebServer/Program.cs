@@ -79,6 +79,8 @@ builder.Services.AddAuthorization(options => {
         .RequireAuthenticatedUser()
         .Build();
 });
+
+builder.Services.AddControllers();
 #endregion
 
 var app = builder.Build();
@@ -94,7 +96,7 @@ app.MapGet("/health/db", [AllowAnonymous] async (NpgsqlDataSource source) => {
     return Results.Ok(new { status = "ok" });
 });
 
-app.MapGet("/api/me", () => Results.Ok());
+app.MapControllers();
 
 app.Run();
 

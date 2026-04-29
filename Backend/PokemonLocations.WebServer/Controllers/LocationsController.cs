@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Extensions;
 
 namespace PokemonLocations.WebServer.Controllers;
 
@@ -23,7 +24,7 @@ public class LocationsController : ControllerBase {
     [HttpGet]
     public async Task<IActionResult> GetAll() {
         var response = await apiClient.GetWithStatusAsync("/locations");
-        if (response.StatusCode != 200) return ProxyError(response);
+        if (response.StatusCode != 200) return this.ProxyError(response);
 
         var locations = JsonNode.Parse(response.Body!)!.AsArray();
         var visitedIds = await visitedRepository.GetForUserAsync(User.GetUserId());
@@ -40,7 +41,7 @@ public class LocationsController : ControllerBase {
     [HttpGet("{locationId:int}")]
     public async Task<IActionResult> GetById(int locationId) {
         var response = await apiClient.GetWithStatusAsync($"/locations/{locationId}");
-        if (response.StatusCode != 200) return ProxyError(response);
+        if (response.StatusCode != 200) return this.ProxyError(response);
 
         var location = JsonNode.Parse(response.Body!)!.AsObject();
         var visitedIds = await visitedRepository.GetForUserAsync(User.GetUserId());
@@ -48,10 +49,5 @@ public class LocationsController : ControllerBase {
         location["userImages"] = new JsonArray();
 
         return Content(location.ToJsonString(), "application/json");
-    }
-
-    private IActionResult ProxyError(ApiResponse response) {
-        if (response.StatusCode == 404) return NotFound();
-        return StatusCode(502);
     }
 }

@@ -23,14 +23,15 @@ public class StatsController : ControllerBase {
     [HttpGet]
     public async Task<IActionResult> Get() {
         var userId = User.GetUserId();
-        var badges = await badgeRepository.GetForUserAsync(userId);
-        var locations = await visitedLocationRepository.GetForUserAsync(userId);
-        var buildings = await visitedBuildingRepository.GetForUserAsync(userId);
+        var badgesTask = badgeRepository.GetForUserAsync(userId);
+        var locationsTask = visitedLocationRepository.GetForUserAsync(userId);
+        var buildingsTask = visitedBuildingRepository.GetForUserAsync(userId);
+        await Task.WhenAll(badgesTask, locationsTask, buildingsTask);
 
         return Ok(new {
-            gymsComplete = badges.Count,
-            locationsVisited = locations.Count,
-            buildingsVisited = buildings.Count
+            gymsComplete = badgesTask.Result.Count,
+            locationsVisited = locationsTask.Result.Count,
+            buildingsVisited = buildingsTask.Result.Count
         });
     }
 }

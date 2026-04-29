@@ -29,7 +29,7 @@ public class AccountController : ControllerBase {
         var hash = passwordHasher.HashPassword(request.Password);
         try {
             var user = await userRepository.CreateAsync(
-                request.Email,
+                EmailNormalizer.Normalize(request.Email),
                 hash,
                 request.DisplayName.Trim());
             return Created("/api/me", MeResponse.FromUser(user));

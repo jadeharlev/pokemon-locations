@@ -14,7 +14,7 @@ public class BasicAuthCredentialValidator {
     }
 
     public async Task<ValidationResult> ValidateAsync(string username, string password) {
-        var user = await userRepository.GetByEmailAsync(username);
+        var user = await userRepository.GetByEmailAsync(EmailNormalizer.Normalize(username));
         if (user is null || !passwordHasher.Verify(password, user.PasswordHash)) {
             return new ValidationResult(false, null);
         }

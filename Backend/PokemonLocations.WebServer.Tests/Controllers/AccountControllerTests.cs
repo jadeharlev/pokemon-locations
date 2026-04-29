@@ -125,6 +125,53 @@ public class AccountControllerTests {
     }
 
     [Fact]
+    public async Task SignupNormalizesEmailToLowercase() {
+        await ResetUsersAsync();
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/account/signup", new {
+            email = "  RED@Example.COM  ",
+            password = "pikachu123",
+            displayName = "Red"
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        Assert.Equal("red@example.com", body.GetProperty("email").GetString());
+    }
+
+    [Fact]
+    public async Task SignupReturns409ForDuplicateEmailIgnoringCase() {
+        await ResetUsersAsync();
+        var client = factory.CreateClient();
+        await client.PostAsJsonAsync("/account/signup", new {
+            email = "red@example.com",
+            password = "pikachu123",
+            displayName = "Red"
+        });
+
+        var response = await client.PostAsJsonAsync("/account/signup", new {
+            email = "RED@EXAMPLE.COM",
+            password = "different-pw",
+            displayName = "Red Again"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task AuthenticatesWithDifferentlyCasedEmail() {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("Red@Example.com", "pikachu123");
+
+        var response = await client.GetAsync("/api/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
     public async Task NewUserCanAuthenticateImmediately() {
         await ResetUsersAsync();
         var client = factory.CreateClient();

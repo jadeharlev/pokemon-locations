@@ -46,6 +46,16 @@ public class BasicAuthCredentialValidatorTests {
     }
 
     [Fact]
+    public async Task ValidateAsyncIsCaseInsensitiveOnEmail() {
+        SeedRed("pikachu123");
+        var validator = new BasicAuthCredentialValidator(userRepository, passwordHasher);
+
+        var result = await validator.ValidateAsync("RED@Example.COM", "pikachu123");
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
     public async Task ValidateAsyncReturnsFailureForUnknownEmail() {
         userRepository.GetByEmailAsync("nobody@example.com").Returns((User?)null);
         var validator = new BasicAuthCredentialValidator(userRepository, passwordHasher);

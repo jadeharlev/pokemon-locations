@@ -54,6 +54,56 @@ public class PokemonLocationsApiClientTests {
         Assert.Contains("Pallet Town", body);
     }
 
+    [Fact]
+    public async Task ExistsAsyncReturnsTrueFor200() {
+        var handler = new RecordingHttpMessageHandler {
+            ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        };
+        var client = CreateClient(handler);
+
+        Assert.True(await client.ExistsAsync("/locations/1"));
+    }
+
+    [Fact]
+    public async Task ExistsAsyncReturnsFalseFor404() {
+        var handler = new RecordingHttpMessageHandler {
+            ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.NotFound)
+        };
+        var client = CreateClient(handler);
+
+        Assert.False(await client.ExistsAsync("/locations/999"));
+    }
+
+    [Fact]
+    public async Task ExistsAsyncRethrowsOtherErrors() {
+        var handler = new RecordingHttpMessageHandler {
+            ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.InternalServerError)
+        };
+        var client = CreateClient(handler);
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.ExistsAsync("/locations/1"));
+    }
+
+    [Fact]
+    public async Task ExistsAsyncAttachesBearerToken() {
+        var handler = new RecordingHttpMessageHandler {
+            ResponseFactory = _ => new HttpResponseMessage(HttpStatusCode.OK)
+        };
+        var client = CreateClient(handler, "exists-token");
+
+        await client.ExistsAsync("/locations/1");
+
+        Assert.Equal("exists-token", handler.LastRequest!.Headers.Authorization?.Parameter);
+    }
+
+    private static PokemonLocationsApiClient CreateClient(
+        RecordingHttpMessageHandler handler, string token = "the-token") {
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("http://api.test") };
+        var tokenProvider = Substitute.For<IJwtTokenProvider>();
+        tokenProvider.GetCurrentToken().Returns(token);
+        return new PokemonLocationsApiClient(httpClient, tokenProvider);
+    }
+
     private sealed class RecordingHttpMessageHandler : HttpMessageHandler {
         public HttpRequestMessage? LastRequest { get; private set; }
         public Func<HttpRequestMessage, HttpResponseMessage> ResponseFactory { get; set; } =

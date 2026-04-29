@@ -109,4 +109,43 @@ public class CachingApiClientDecoratorTests {
         Assert.Equal("[\"Pallet Town\"]", locations);
         Assert.Equal("[\"Oak Lab\"]", buildings);
     }
+
+    [Fact]
+    public async Task GetWithStatusAsyncCacheMissCallsInner() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.GetWithStatusAsync("/locations").Returns(new ApiResponse(200, "[\"Pallet Town\"]"));
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        var result = await decorator.GetWithStatusAsync("/locations");
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal("[\"Pallet Town\"]", result.Body);
+        await inner.Received(1).GetWithStatusAsync("/locations");
+    }
+
+    [Fact]
+    public async Task GetWithStatusAsyncSecondCallHitsCache() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.GetWithStatusAsync("/locations").Returns(new ApiResponse(200, "[\"Pallet Town\"]"));
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        await decorator.GetWithStatusAsync("/locations");
+        var second = await decorator.GetWithStatusAsync("/locations");
+
+        Assert.Equal(200, second.StatusCode);
+        Assert.Equal("[\"Pallet Town\"]", second.Body);
+        await inner.Received(1).GetWithStatusAsync("/locations");
+    }
+
+    [Fact]
+    public async Task GetWithStatusAsyncDoesNotCacheNon200() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.GetWithStatusAsync("/locations/999").Returns(new ApiResponse(404, null));
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        await decorator.GetWithStatusAsync("/locations/999");
+        await decorator.GetWithStatusAsync("/locations/999");
+
+        await inner.Received(2).GetWithStatusAsync("/locations/999");
+    }
 }

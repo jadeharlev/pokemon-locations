@@ -27,6 +27,22 @@ public class CachingApiClientDecorator : IPokemonLocationsApiClient {
         return body;
     }
 
+    public async Task<ApiResponse> GetWithStatusAsync(string path) {
+        var key = "status:" + path;
+        var cached = await cache.GetAsync(key);
+        if (cached is not null) {
+            return new ApiResponse(200, Encoding.UTF8.GetString(cached));
+        }
+
+        var result = await inner.GetWithStatusAsync(path);
+        if (result.StatusCode == 200 && result.Body is not null) {
+            await cache.SetAsync(key, Encoding.UTF8.GetBytes(result.Body), new DistributedCacheEntryOptions {
+                AbsoluteExpirationRelativeToNow = ttl
+            });
+        }
+        return result;
+    }
+
     public async Task<bool> ExistsAsync(string path) {
         var key = "exists:" + path;
         var cached = await cache.GetAsync(key);

@@ -18,6 +18,14 @@ public class PokemonLocationsApiClient : IPokemonLocationsApiClient {
         return await response.Content.ReadAsStringAsync();
     }
 
+    public async Task<ApiResponse> GetWithStatusAsync(string path) {
+        using var response = await SendAsync(path);
+        var body = response.IsSuccessStatusCode
+            ? await response.Content.ReadAsStringAsync()
+            : null;
+        return new ApiResponse((int)response.StatusCode, body);
+    }
+
     public async Task<bool> ExistsAsync(string path) {
         using var response = await SendAsync(path);
         if (response.StatusCode == HttpStatusCode.NotFound) return false;

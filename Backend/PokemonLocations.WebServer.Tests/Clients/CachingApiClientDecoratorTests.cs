@@ -45,6 +45,58 @@ public class CachingApiClientDecoratorTests {
     }
 
     [Fact]
+    public async Task ExistsAsyncFirstCallHitsInner() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.ExistsAsync("/locations/1").Returns(true);
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        Assert.True(await decorator.ExistsAsync("/locations/1"));
+        await inner.Received(1).ExistsAsync("/locations/1");
+    }
+
+    [Fact]
+    public async Task ExistsAsyncSecondCallHitsCache() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.ExistsAsync("/locations/1").Returns(true);
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        await decorator.ExistsAsync("/locations/1");
+        var second = await decorator.ExistsAsync("/locations/1");
+
+        Assert.True(second);
+        await inner.Received(1).ExistsAsync("/locations/1");
+    }
+
+    [Fact]
+    public async Task ExistsAsyncCachesNegativeResult() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.ExistsAsync("/locations/999").Returns(false);
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        await decorator.ExistsAsync("/locations/999");
+        var second = await decorator.ExistsAsync("/locations/999");
+
+        Assert.False(second);
+        await inner.Received(1).ExistsAsync("/locations/999");
+    }
+
+    [Fact]
+    public async Task ExistsAsyncDoesNotCollideWithGetAsync() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.GetAsync("/locations/1").Returns("[\"Pallet Town\"]");
+        inner.ExistsAsync("/locations/1").Returns(true);
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        var body = await decorator.GetAsync("/locations/1");
+        var exists = await decorator.ExistsAsync("/locations/1");
+
+        Assert.Equal("[\"Pallet Town\"]", body);
+        Assert.True(exists);
+        await inner.Received(1).GetAsync("/locations/1");
+        await inner.Received(1).ExistsAsync("/locations/1");
+    }
+
+    [Fact]
     public async Task GetAsyncDifferentPathsDoNotCollide() {
         var inner = Substitute.For<IPokemonLocationsApiClient>();
         inner.GetAsync("/locations").Returns("[\"Pallet Town\"]");

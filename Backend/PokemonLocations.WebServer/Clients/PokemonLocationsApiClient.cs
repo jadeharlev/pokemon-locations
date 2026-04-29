@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Headers;
 
 namespace PokemonLocations.WebServer.Clients;
@@ -12,10 +13,21 @@ public class PokemonLocationsApiClient : IPokemonLocationsApiClient {
     }
 
     public async Task<string> GetAsync(string path) {
-        using var request = new HttpRequestMessage(HttpMethod.Get, path);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenProvider.GetCurrentToken());
-        using var response = await httpClient.SendAsync(request);
+        using var response = await SendAsync(path);
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadAsStringAsync();
+    }
+
+    public async Task<bool> ExistsAsync(string path) {
+        using var response = await SendAsync(path);
+        if (response.StatusCode == HttpStatusCode.NotFound) return false;
+        response.EnsureSuccessStatusCode();
+        return true;
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(string path) {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", tokenProvider.GetCurrentToken());
+        return await httpClient.SendAsync(request);
     }
 }

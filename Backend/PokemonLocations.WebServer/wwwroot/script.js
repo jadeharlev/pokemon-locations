@@ -1,11 +1,10 @@
-const API_BASE_URL = "http://localhost:8080";
+// All API calls go through the same-origin web server at /api/*.
+// Authentication is handled via Basic Auth headers set by the sign-in form (SE498-61).
+// No bearer token or cross-origin requests needed.
 
-// TEMPORARY: 90-day dev token (expires ~2026-07-25). The web server will replace
-// this once it lands; tracked in SE498-54 PR. Re-mint with ./issue-token.sh.
-const API_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmcm9udGVuZC1zdG9wZ2FwIiwibmJmIjoxNzc3MzI5OTI4LCJleHAiOjE3ODUxMDU5MjgsImlzcyI6InBva2Vtb24tbG9jYXRpb25zLWFwaSIsImF1ZCI6InBva2Vtb24tbG9jYXRpb25zLWNsaWVudHMifQ.-mwotqWsEMIosrC_Wh2Tx0zPPQHd_WMdV8NCMvv7CkI";
-
-const apiFetch = (path) => fetch(`${API_BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${API_TOKEN}` }
+const apiFetch = (path, options = {}) => fetch(`/api${path}`, {
+    ...options,
+    credentials: 'include'
 });
 
 async function loadLocations() {

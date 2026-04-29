@@ -32,8 +32,8 @@ Make sure you already have Docker (and Docker Compose) or Podman, along with the
 
 The Compose file is split into two stacks via Compose profiles:
 
-* **API stack (default)**: `api`, `db`, `cache`. The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
-* **Frontend stack**: adds `frontend` (and, in the future, the ASP.NET web server). Activated with `--profile frontend`.
+* **API stack (default)**: `api`, `db`. The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
+* **Frontend stack**: adds `webserver` (ASP.NET web server + static frontend) and `cache` (Redis). Activated with `--profile frontend`.
 
 ### API stack only
 
@@ -43,17 +43,17 @@ docker/podman compose -f docker-compose.debug.yml up -d
 
 > The API will run at [https://localhost:8081](localhost:8081), with Swagger at [https://localhost:8081/swagger](localhost:8081/swagger).
 
-### Full stack (API + frontend)
+### Full stack (API + web server + frontend)
 
 ```bash
 docker/podman compose -f docker-compose.debug.yml --profile frontend up -d
 ```
 
-> The frontend will run at [http://localhost:3000/](localhost:3000).
+> The frontend will run at [http://localhost:3001/](localhost:3001). The web server serves static files from `wwwroot/` and proxies API requests with per-user state merging.
 
 Stop everything with `docker/podman compose -f docker-compose.debug.yml --profile frontend down` (the `--profile` flag is needed to also stop frontend services).
 
-> ⚠️ **Warning:** Compose only acts on services whose profile is currently active. If you ran `up` with `--profile frontend`, you **must** pass `--profile frontend` to `down` as well — otherwise the frontend container will be left running, and Compose will fail to remove the project network because the frontend is still attached to it. Symptom: `Network pokemonlocations_default  Resource is still in use`.
+> ⚠️ **Warning:** Compose only acts on services whose profile is currently active. If you ran `up` with `--profile frontend`, you **must** pass `--profile frontend` to `down` as well — otherwise the web server and cache containers will be left running, and Compose will fail to remove the project network because they are still attached to it. Symptom: `Network pokemonlocations_default  Resource is still in use`.
 
 ### Getting an API token
 

@@ -123,9 +123,13 @@ async function loadLocations() {
             select.appendChild(opt);
         });
 
-        // Default to first location (Pallet Town if sorted by ID)
         if (allLocations.length > 0) {
-            selectedLocationId = allLocations[0].locationId;
+            const savedLocationId = localStorage.getItem('selectedLocationId');
+            if (savedLocationId && allLocations.some(l => l.locationId == savedLocationId)) {
+                selectedLocationId = parseInt(savedLocationId, 10);
+            } else {
+                selectedLocationId = allLocations[0].locationId;
+            }
             select.value = selectedLocationId;
             fitSelectWidth(select);
             await selectLocation(selectedLocationId);
@@ -397,7 +401,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('location-select').addEventListener('change', (e) => {
         fitSelectWidth(e.target);
         const id = parseInt(e.target.value, 10);
-        if (!isNaN(id)) selectLocation(id);
+        if (!isNaN(id)) {
+            localStorage.setItem('selectedLocationId', id);
+            selectLocation(id);
+        }
     });
 
     setupNotesAutoSave();

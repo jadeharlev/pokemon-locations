@@ -3,355 +3,464 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pokemon Locations</title>
+  <meta name="description" content="Track your Pokémon Red journey — badges, visited locations, buildings, and notes." />
+  <title>PokéLocs</title>
 
-  <script src="script.js" defer></script>
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 
   <style>
+    :root {
+      --theme-primary: #2E7D32;
+      --theme-primary-light: #4CAF50;
+      --theme-primary-pale: #E8F5E9;
+      --theme-primary-dark: #1B5E20;
+      --theme-ring-bg: #E0E0E0;
+      --theme-text: #111;
+      --theme-muted: #666;
+      --theme-danger: #C62828;
+      --theme-border: #CCC;
+      --theme-check-fill: #3EB64A;
+    }
+
+    * { box-sizing: border-box; }
+
     body {
       margin: 0;
-      background-color: #ffffff;
-      font-family: Arial, sans-serif;
-      color: #111111;
+      font-family: 'Inter', Arial, sans-serif;
+      color: var(--theme-text);
+      background: #FAFAFA;
     }
 
-    .page-frame {
-      width: 100%;
-      min-height: 100vh;
-      background: #ffffff;
-    }
-
-    .top-nav {
-      background: #f3f3f3;
-      border-bottom: 2px solid #222;
-      padding: 18px 48px;
-    }
-
-    .nav-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .nav-left,
-    .nav-right {
-      display: flex;
-      align-items: center;
-    }
-
-    .nav-left {
-      gap: 42px;
-    }
-
-    .nav-right {
-      gap: 18px;
-    }
-
-    .top-nav a {
-      text-decoration: none;
-      color: #000000;
-      font-size: 22px;
-      transition: color 0.2s ease;
-    }
-
-    .top-nav a.nav-link-main {
-      font-weight: 700;
-    }
-
-    .top-nav a.active {
-      color: #2457ff;
-    }
-
-    .top-nav a.nav-link-main:not(.active):hover {
-      color: #7db7ff;
-    }
-
-    .sign-in-link {
-      font-weight: 400;
-      display: inline-block;
-    }
-
-    .sign-in-link:hover {
-      font-weight: 700;
-      color: #000000;
-    }
-
-    .nav-search-shell {
-      position: relative;
-      width: 180px;
-      height: 46px;
-      display: flex;
-      justify-content: flex-end;
-      flex: 0 0 180px;
-    }
-
-    .nav-search {
-      position: absolute;
-      right: 0;
-      top: 0;
-      width: 48px;
-      height: 46px;
-      background: transparent;
-      border: none;
-      border-radius: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      overflow: hidden;
-      padding: 0 14px;
-      cursor: pointer;
-      transition: width 0.25s ease, background-color 0.25s ease;
-    }
-
-    .nav-search:hover,
-    .nav-search:focus-within {
-      width: 180px;
-      background: #fafafa;
-    }
-
-    .search-icon {
-      width: 20px;
-      height: 20px;
-      flex: 0 0 20px;
-      margin-right: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .search-icon svg {
-      display: block;
-      width: 20px;
-      height: 20px;
-    }
-
-    .nav-search-input {
-      width: 100%;
-      border: none;
-      outline: none;
-      background: transparent;
-      font-size: 20px;
-      color: #111111;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.15s ease;
-    }
-
-    .nav-search:hover .nav-search-input,
-    .nav-search:focus-within .nav-search-input {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .nav-search-input::placeholder {
-      color: #a0a0a0;
-      opacity: 1;
-    }
-
-    .hero-section {
-      min-height: calc(100vh - 80px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 24px;
-    }
-
-    .hero-card {
-      width: 100%;
-      max-width: 1050px;
+    /* ── Top bar ── */
+    .top-bar {
+      background: var(--theme-primary-dark);
+      color: #FFF;
       text-align: center;
-      padding: 56px 48px;
-      background: #ececec;
-      border-radius: 24px;
-    }
-
-    .site-title {
-      font-size: 72px;
+      padding: 9px 0;
+      font-size: 25px;
       font-weight: 700;
-      margin-bottom: 28px;
+      letter-spacing: 0px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .site-description {
-      font-size: 30px;
-      line-height: 1.6;
-      max-width: 900px;
-      margin: 0 auto 40px auto;
-      color: #333333;
+    /* ── Layout ── */
+    .app-container {
+      display: grid;
+      grid-template-columns: 330px minmax(0, 1fr) 280px;
+      gap: 0;
+      min-height: calc(100vh - 48px);
     }
 
-    .browse-button {
-      display: inline-block;
-      background: #2457ff;
-      color: #ffffff;
-      text-decoration: none;
-      font-size: 24px;
+    .panel {
+      padding: 30px;
+      border-right: 4px solid var(--theme-primary-dark);
+    }
+    .panel:last-child { border-right: none; }
+    #buildings-panel { border-left: none; }
+
+    /* No border between location detail (col 2) and locations list (col 2) */
+    #location-panel {
+      border-right: 4px solid var(--theme-primary-dark);
+      display: flex;
+      flex-direction: row;
+      gap: 45px;
+      padding-top: 30px;
+      padding-bottom: 30px;
+      padding-left: 45px;
+      padding-right: 45px;
+      min-width: 0;
+    }
+
+    .location-info-col {
+      flex: 1.45;
+      min-width: 0;
+    }
+
+    .locations-list-col {
+      flex: 1;
+      min-width: 0;
+    }
+
+
+
+
+    /* ── Location name with inline dropdown ── */
+    .location-name-wrapper {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+
+    .location-name-select {
+      appearance: none;
+      -webkit-appearance: none;
+      border: none;
+      background: transparent;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 33px;
       font-weight: 700;
-      padding: 16px 32px;
-      border-radius: 14px;
-      transition: background-color 0.2s ease;
+      color: var(--theme-text);
+      cursor: pointer;
+      padding: 0;
+      padding-right: 24px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23333' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 2px center;
     }
 
-    .browse-button:hover {
-      background: #1b45cc;
-      color: #ffffff;
+    .location-name-select:focus {
+      outline: none;
     }
 
-    .helper-text {
-      margin-top: 24px;
-      font-size: 18px;
-      color: #555555;
+    /* ── Badge Progress (Column 1) ── */
+    .panel-header {
+      font-weight: 700;
+      font-size: 33px;
+      margin-bottom: 18px;
     }
 
-    @media (max-width: 992px) {
-      .top-nav {
-        padding: 16px 24px;
-      }
-
-      .top-nav a {
-        font-size: 18px;
-      }
-
-      .nav-left {
-        gap: 22px;
-      }
-
-      .nav-right {
-        gap: 12px;
-      }
-
-      .nav-search-shell {
-        width: 150px;
-        flex-basis: 150px;
-      }
-
-      .nav-search:hover,
-      .nav-search:focus-within {
-        width: 150px;
-      }
-
-      .nav-search-input {
-        font-size: 17px;
-      }
-
-      .site-title {
-        font-size: 50px;
-      }
-
-      .site-description {
-        font-size: 22px;
-      }
-
-      .browse-button {
-        font-size: 20px;
-        padding: 14px 26px;
-      }
+    #buildings-panel .panel-header {
+      font-size: 37px;
+    }
+    .ring-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
     }
 
-    @media (max-width: 600px) {
-      .nav-row {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-      }
+    .ring-chart {
+      position: relative;
+      width: 220px;
+      height: 220px;
+    }
 
-      .nav-left {
-        flex-wrap: wrap;
-        gap: 14px;
-      }
+    .ring-chart svg {
+      transform: rotate(-90deg);
+      width: 220px;
+      height: 220px;
+    }
 
-      .nav-right {
-        width: 100%;
-        justify-content: space-between;
-      }
+    .ring-bg {
+      fill: none;
+      stroke: var(--theme-ring-bg);
+      stroke-width: 18;
+    }
 
-      .nav-search-shell {
-        width: 140px;
-        flex-basis: 140px;
-      }
+    .ring-fill {
+      fill: none;
+      stroke: var(--theme-primary);
+      stroke-width: 18;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.15s ease;
+    }
 
-      .nav-search:hover,
-      .nav-search:focus-within {
-        width: 140px;
-      }
+    .ring-label {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 40px;
+      font-weight: 700;
+    }
 
-      .hero-card {
-        padding: 36px 22px;
-      }
+    .badge-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
 
-      .site-title {
-        font-size: 38px;
-      }
+    .badge-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 10px 0;
+      cursor: pointer;
+      user-select: none;
+      font-size: 27px;
+    }
 
-      .site-description {
-        font-size: 18px;
-      }
+    .badge-check {
+      width: 24px;
+      height: 24px;
+      border: 2px solid var(--theme-primary);
+      border-radius: 0px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
 
-      .browse-button {
-        font-size: 18px;
-        width: 100%;
-      }
+    .badge-check.earned {
+      background: var(--theme-check-fill);
+      border-color: var(--theme-check-fill);
+    }
 
-      .helper-text {
-        font-size: 16px;
-      }
+    /* ── Location Detail (Column 2) ── */
+
+    .location-status {
+      font-size: 28px;
+      margin-bottom: 18px;
+    }
+
+    .status-visited { color: var(--theme-primary); font-weight: 600; }
+    .status-not-visited { color: var(--theme-danger); font-weight: 600; }
+
+    .location-description {
+      font-size: 22px;
+      color: var(--theme-text);
+      line-height: 1.4;
+      margin-bottom: 24px;
+    }
+
+    .image-gallery {
+      background: var(--theme-primary-pale);
+      border: 1px solid var(--theme-primary);
+      border-radius: 0px;
+      width: 100%;
+      height: 247px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 18px;
+      padding: 12px;
+      color: var(--theme-primary);
+      font-size: 22px;
+      overflow: auto;
+      gap: 8px;
+    }
+
+    .image-gallery img {
+      max-height: 160px;
+      border-radius: 6px;
+      object-fit: cover;
+    }
+
+    .notes-area {
+      width: 100%;
+      flex: 1;
+      min-height: 178px;
+      border: 1px solid var(--theme-primary);
+      border-radius: 0px;
+      padding: 13px;
+      font-family: 'Inter', Arial, sans-serif;
+      font-size: 22px;
+      resize: none;
+      transition: border-color 0.2s;
+    }
+
+    .notes-area:focus {
+      outline: none;
+      border-color: var(--theme-primary);
+    }
+
+    .notes-saved {
+      font-size: 0.8rem;
+      color: var(--theme-primary);
+      margin-top: 4px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .notes-saved.visible { opacity: 1; }
+
+    /* ── Locations / Buildings List (Column 3) ── */
+
+    .building-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .building-item {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      padding: 10px 0;
+      cursor: pointer;
+      user-select: none;
+      font-size: 26px;
+      border-bottom: 0px solid #EEE;
+    }
+
+    .building-item:last-child { border-bottom: none; }
+
+    .building-check {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--theme-primary);
+      border-radius: 0px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s ease;
+    }
+
+    .building-check.visited {
+      background: var(--theme-check-fill);
+      border-color: var(--theme-check-fill);
+    }
+
+    /* ── User Status (Column 4) ── */
+    #status-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: center;
+    }
+
+    #status-panel .panel-header,
+    #status-panel .stats-section h6 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .user-info p {
+      margin: 0 0 9px 0;
+      font-size: 22px;
+    }
+
+    .user-info strong {
+      color: var(--theme-primary);
+    }
+
+    .stats-section {
+      margin: 0;
+    }
+
+    .stats-section h6 {
+      font-weight: 700;
+      margin-bottom: 9px;
+      font-size: 22px;
+    }
+
+    .stats-section p {
+      margin: 0 0 6px 0;
+      font-size: 22px;
+    }
+
+    .action-buttons {
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .btn-action {
+      border: 2px solid var(--theme-text);
+      background: #FFF;
+      border-radius: 13px;
+      padding: 9px 13px;
+      font-size: 19px;
+      font-weight: 700;
+      font-family: 'Inter', Arial, sans-serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .btn-action:hover {
+      background: #F5F5F5;
+      border-color: var(--theme-primary);
+    }
+
+    .btn-danger {
+      color: var(--theme-danger);
+      border-color: var(--theme-danger);
+    }
+
+    .btn-danger:hover {
+      background: #FFEBEE;
+    }
+
+    /* ── Loading state ── */
+    .loading-text {
+      color: var(--theme-muted);
+      font-style: italic;
+      font-size: 0.9rem;
     }
   </style>
 </head>
 <body>
-  <div class="page-frame">
-    <nav class="top-nav">
-      <div class="nav-row">
-        <div class="nav-left">
-          <a href="index.html" class="nav-link-main active">HOME</a>
-          <a href="locations.html" class="nav-link-main">LOCATIONS</a>
-          <a href="#" class="nav-link-main">FAVORITES</a>
-        </div>
 
-        <div class="nav-right">
-          <div class="nav-search-shell">
-            <div class="nav-search">
-              <span class="search-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="10.5" cy="10.5" r="5.5"></circle>
-                  <line x1="15" y1="15" x2="21" y2="21"></line>
-                </svg>
-              </span>
-              <input
-                type="text"
-                class="nav-search-input"
-                placeholder="Search"
-              />
-            </div>
-          </div>
-          <a href="#" class="sign-in-link">Sign In</a>
+  <div class="top-bar" id="top-bar">PokéLocs</div>
+
+  <div class="app-container">
+
+    <!-- Column 1: Badge Progress -->
+    <div class="panel" id="badge-panel">
+      <div class="panel-header">Badge Progress</div>
+
+      <div class="ring-container">
+        <div class="ring-chart">
+          <svg viewBox="0 0 220 220" width="220" height="220">
+            <circle class="ring-bg" cx="110" cy="110" r="101" />
+            <circle class="ring-fill" id="ring-fill" cx="110" cy="110" r="101"
+              stroke-dasharray="634.60"
+              stroke-dashoffset="634.60" />
+          </svg>
+          <div class="ring-label" id="ring-label">0/8</div>
         </div>
       </div>
-    </nav>
 
-    <main class="hero-section">
-      <div class="hero-card">
-        <h1 class="site-title">Pokemon Locations</h1>
+      <ul class="badge-list" id="badge-list"></ul>
+    </div>
 
-        <p class="site-description">
-          Explore towns and cities from the Pokemon world and learn what buildings
-          are in each location in a simple and organized way.
-        </p>
+    <!-- Column 2: Selected Location Detail & Buildings List -->
+    <div class="panel" id="location-panel">
+      <div class="location-info-col">
+        <div class="location-name-wrapper">
+          <select class="location-name-select" id="location-select">
+            <option>Loading...</option>
+          </select>
+        </div>
+        <div class="location-status" id="location-status"></div>
+        <div class="location-description" id="location-description"></div>
+        <div class="image-gallery" id="image-gallery">Image Gallery</div>
 
-        <a href="locations.html" class="browse-button">Browse Locations</a>
-
-        <p class="helper-text">
-          Start by viewing available locations and selecting a city to learn more.
-        </p>
+        <textarea class="notes-area" id="notes-area" placeholder="Add your notes..."></textarea>
+        <div class="notes-saved" id="notes-saved">Notes saved</div>
       </div>
-    </main>
+
+      <div class="locations-list-col">
+        <div class="panel-header">Locations List</div>
+        <ul class="building-list" id="building-list"></ul>
+      </div>
+    </div>
+
+    <!-- Column 4: Current Status -->
+    <div class="panel" id="status-panel">
+      <div class="status-block">
+        <div class="panel-header">Current Status</div>
+        <div class="user-info" id="user-info">
+          <p class="loading-text">Loading…</p>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h6>Your Stats</h6>
+        <p>Gyms Complete: <strong id="stat-gyms">0</strong></p>
+        <p>Locations Visited: <strong id="stat-locations">0</strong></p>
+        <p>Buildings Visited: <strong id="stat-buildings">0</strong></p>
+      </div>
+
+      <div class="action-buttons">
+        <button class="btn-action btn-danger" id="btn-delete-account">Delete Account</button>
+        <button class="btn-action" id="btn-change-theme" disabled title="Coming soon (SE498-64)">Change Theme</button>
+        <button class="btn-action" id="btn-log-out">Log Out</button>
+      </div>
+    </div>
+
   </div>
 
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-  ></script>
+  <script src="script.js" defer></script>
 </body>
 </html>

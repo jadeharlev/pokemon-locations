@@ -25,6 +25,7 @@ Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
 var dataSource = NpgsqlDataSource.Create(postgresConnectionString);
 builder.Services.AddSingleton(dataSource);
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
+builder.Services.AddSingleton<IBadgeRepository, BadgeRepository>();
 builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddSingleton<BasicAuthCredentialValidator>();
 

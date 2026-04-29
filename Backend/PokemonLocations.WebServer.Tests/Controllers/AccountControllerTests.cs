@@ -1,13 +1,11 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
-using Dapper;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Database.Repositories;
 using PokemonLocations.WebServer.Tests.Infrastructure;
+using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
 namespace PokemonLocations.WebServer.Tests.Controllers;
 
@@ -257,26 +255,9 @@ public class AccountControllerTests {
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    private static AuthenticationHeaderValue BasicHeader(string email, string password) {
-        var encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{email}:{password}"));
-        return new AuthenticationHeaderValue("Basic", encoded);
-    }
+    private Task SeedUserAsync(string email, string password, string displayName) =>
+        TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, email, password, displayName);
 
-    private static async Task<JsonElement> ReadJsonAsync(HttpResponseMessage response) {
-        var raw = await response.Content.ReadAsStringAsync();
-        return JsonDocument.Parse(raw).RootElement;
-    }
-
-    private async Task SeedUserAsync(string email, string password, string displayName) {
-        var hasher = new PasswordHasher();
-        await using var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
-        var repository = new UserRepository(dataSource);
-        await repository.CreateAsync(email, hasher.HashPassword(password), displayName);
-    }
-
-    private async Task ResetUsersAsync() {
-        await using var connection = new NpgsqlConnection(postgresFixture.ConnectionString);
-        await connection.OpenAsync();
-        await connection.ExecuteAsync("DELETE FROM users");
-    }
+    private Task ResetUsersAsync() =>
+        TestHelpers.ResetUsersAsync(postgresFixture.ConnectionString);
 }

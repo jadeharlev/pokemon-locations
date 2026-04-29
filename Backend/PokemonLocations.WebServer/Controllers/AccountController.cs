@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
@@ -40,18 +39,14 @@ public class AccountController : ControllerBase {
 
     [HttpDelete("/account")]
     public async Task<IActionResult> Delete() {
-        var userId = GetUserId();
-        await userRepository.DeleteAsync(userId);
+        await userRepository.DeleteAsync(User.GetUserId());
         return NoContent();
     }
 
     [HttpGet("/api/me")]
     public async Task<IActionResult> Me() {
-        var userId = GetUserId();
-        var user = await userRepository.GetByIdAsync(userId);
+        var user = await userRepository.GetByIdAsync(User.GetUserId());
         if (user is null) return NotFound();
         return Ok(MeResponse.FromUser(user));
     }
-
-    private int GetUserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 }

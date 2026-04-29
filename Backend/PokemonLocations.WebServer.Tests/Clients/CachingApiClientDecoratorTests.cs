@@ -148,4 +148,23 @@ public class CachingApiClientDecoratorTests {
 
         await inner.Received(2).GetWithStatusAsync("/locations/999");
     }
+
+    [Fact]
+    public async Task GetAsyncAndGetWithStatusAsyncShareCache() {
+        var inner = Substitute.For<IPokemonLocationsApiClient>();
+        inner.GetAsync("/locations").Returns("[\"Pallet Town\"]");
+        inner.GetWithStatusAsync("/locations").Returns(new ApiResponse(200, "[\"Pallet Town\"]"));
+        var decorator = new CachingApiClientDecorator(inner, CreateCache(), TimeSpan.FromMinutes(5));
+
+        // Populate cache via GetAsync
+        await decorator.GetAsync("/locations");
+
+        // GetWithStatusAsync should hit the shared cache, not the inner client
+        var result = await decorator.GetWithStatusAsync("/locations");
+
+        Assert.Equal(200, result.StatusCode);
+        Assert.Equal("[\"Pallet Town\"]", result.Body);
+        await inner.Received(1).GetAsync("/locations");
+        await inner.DidNotReceive().GetWithStatusAsync(Arg.Any<string>());
+    }
 }

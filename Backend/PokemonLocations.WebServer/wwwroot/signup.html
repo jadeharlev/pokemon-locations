@@ -6,10 +6,18 @@
     <title>Sign Up — PokéLocs</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+    <script>
+        (function () {
+            const valid = ['bulbasaur', 'charmander', 'squirtle', 'pikachu'];
+            const cached = sessionStorage.getItem('pl.theme');
+            const name = valid.includes(cached) ? cached : 'pikachu';
+            document.write(`<link id="theme-stylesheet" rel="stylesheet" href="/css/themes/${name}.css">`);
+        })();
+    </script>
     <style>
         body {
             font-family: 'Inter', Arial, sans-serif;
-            background: #E8F5E9;
+            background: var(--theme-primary-pale);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -25,17 +33,17 @@
             max-width: 420px;
         }
         .auth-card h1 {
-            color: #1B5E20;
+            color: var(--theme-primary-dark);
             font-weight: 700;
             margin-bottom: 1.5rem;
         }
         .btn-primary {
-            background: #2E7D32;
-            border-color: #2E7D32;
+            background: var(--theme-primary);
+            border-color: var(--theme-primary);
         }
         .btn-primary:hover, .btn-primary:focus {
-            background: #1B5E20;
-            border-color: #1B5E20;
+            background: var(--theme-primary-dark);
+            border-color: var(--theme-primary-dark);
         }
     </style>
 </head>

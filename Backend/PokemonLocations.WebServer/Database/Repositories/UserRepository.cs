@@ -59,4 +59,14 @@ public class UserRepository : IUserRepository {
             "DELETE FROM users WHERE user_id = @UserId",
             new { UserId = userId });
     }
+
+    public async Task UpdateThemeAsync(int userId, string theme) {
+        if (!Themes.IsValid(theme)) {
+            throw new ArgumentException($"Unknown theme: {theme}", nameof(theme));
+        }
+        await using var connection = await dataSource.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            "UPDATE users SET theme = @Theme::user_theme WHERE user_id = @UserId",
+            new { UserId = userId, Theme = theme });
+    }
 }

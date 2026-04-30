@@ -85,6 +85,33 @@ public class UserRepositoryTests {
             repository.CreateAsync("red@example.com", "other-hash", "Red Again"));
     }
 
+    [Theory]
+    [InlineData("bulbasaur")]
+    [InlineData("charmander")]
+    [InlineData("squirtle")]
+    [InlineData("pikachu")]
+    public async Task UpdateThemeAsyncPersistsTheme(string theme) {
+        await ResetUsersAsync();
+        var repository = CreateRepository();
+        var created = await repository.CreateAsync("red@example.com", "hashed-pw", "Red");
+
+        await repository.UpdateThemeAsync(created.UserId, theme);
+
+        var updated = await repository.GetByIdAsync(created.UserId);
+        Assert.NotNull(updated);
+        Assert.Equal(theme, updated!.Theme);
+    }
+
+    [Fact]
+    public async Task UpdateThemeAsyncRejectsUnknownTheme() {
+        await ResetUsersAsync();
+        var repository = CreateRepository();
+        var created = await repository.CreateAsync("red@example.com", "hashed-pw", "Red");
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            repository.UpdateThemeAsync(created.UserId, "missingno"));
+    }
+
     [Fact]
     public async Task DeleteAsyncRemovesUser() {
         await ResetUsersAsync();

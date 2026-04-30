@@ -255,6 +255,47 @@ public class AccountControllerTests {
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("bulbasaur")]
+    [InlineData("charmander")]
+    [InlineData("squirtle")]
+    [InlineData("pikachu")]
+    public async Task UpdateThemeReturns204AndPersists(string theme) {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        var response = await client.PutAsJsonAsync("/account/theme", new { theme });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+
+        var meResponse = await client.GetAsync("/api/me");
+        var body = await ReadJsonAsync(meResponse);
+        Assert.Equal(theme, body.GetProperty("theme").GetString());
+    }
+
+    [Fact]
+    public async Task UpdateThemeReturns400ForUnknownTheme() {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        var response = await client.PutAsJsonAsync("/account/theme", new { theme = "missingno" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdateThemeReturns401WithoutBasicHeader() {
+        var client = factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync("/account/theme", new { theme = "charmander" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private Task SeedUserAsync(string email, string password, string displayName) =>
         TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, email, password, displayName);
 

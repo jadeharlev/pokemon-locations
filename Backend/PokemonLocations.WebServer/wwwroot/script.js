@@ -326,6 +326,21 @@ function setupNotesAutoSave() {
     });
 }
 
+// ─── Themes ───
+const THEMES = ['bulbasaur', 'charmander', 'squirtle', 'pikachu'];
+const THEME_CACHE_KEY = 'pl.theme';
+
+function applyTheme(name) {
+    if (!THEMES.includes(name)) name = 'bulbasaur';
+    document.documentElement.setAttribute('data-theme', name);
+    const link = document.getElementById('theme-stylesheet');
+    if (link) link.href = `/css/themes/${name}.css`;
+    sessionStorage.setItem(THEME_CACHE_KEY, name);
+}
+
+// Apply cached theme synchronously to avoid a flash
+applyTheme(sessionStorage.getItem(THEME_CACHE_KEY) || 'bulbasaur');
+
 // ─── User info ───
 async function loadUserInfo() {
     const container = document.getElementById('user-info');
@@ -334,6 +349,8 @@ async function loadUserInfo() {
         const res = await apiFetch('/me');
         if (!res.ok) throw new Error(`Status: ${res.status}`);
         const user = await res.json();
+
+        applyTheme(user.theme);
 
         container.innerHTML = `
             <p>Logged in as: <strong>${escapeHtml(user.displayName)}</strong></p>
@@ -382,6 +399,41 @@ function setupActions() {
     document.getElementById('btn-log-out').addEventListener('click', () => {
         PLAuth.clearCreds();
         window.location.href = '/signin.html';
+    });
+
+    const themeModalEl = document.getElementById('theme-modal');
+    const themeModal = new bootstrap.Modal(themeModalEl);
+
+    document.getElementById('btn-change-theme').addEventListener('click', () => {
+        themeModal.show();
+    });
+
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const theme = btn.dataset.theme;
+            const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
+            applyTheme(theme);
+
+            try {
+                const res = await PLAuth.authFetch('/account/theme', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ theme })
+                });
+                if (!res.ok) {
+                    applyTheme(previous);
+                    alert('Failed to update theme.');
+                    return;
+                }
+                const themeLabel = document.querySelector('#user-info p:nth-child(2) strong');
+                if (themeLabel) themeLabel.textContent = theme;
+                themeModal.hide();
+            } catch (e) {
+                applyTheme(previous);
+                alert('Failed to update theme.');
+                console.error('Theme update failed:', e.message);
+            }
+        });
     });
 }
 

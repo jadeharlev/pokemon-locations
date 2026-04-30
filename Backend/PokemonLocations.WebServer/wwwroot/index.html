@@ -8,20 +8,9 @@
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link id="theme-stylesheet" rel="stylesheet" href="/css/themes/bulbasaur.css" />
 
   <style>
-    :root {
-      --theme-primary: #2E7D32;
-      --theme-primary-light: #4CAF50;
-      --theme-primary-pale: #E8F5E9;
-      --theme-primary-dark: #1B5E20;
-      --theme-ring-bg: #E0E0E0;
-      --theme-text: #111;
-      --theme-muted: #666;
-      --theme-danger: #C62828;
-      --theme-border: #CCC;
-      --theme-check-fill: #3EB64A;
-    }
 
     * { box-sizing: border-box; }
 
@@ -454,13 +443,33 @@
 
       <div class="action-buttons">
         <button class="btn-action btn-danger" id="btn-delete-account">Delete Account</button>
-        <button class="btn-action" id="btn-change-theme" disabled title="Coming soon (SE498-64)">Change Theme</button>
+        <button class="btn-action" id="btn-change-theme">Change Theme</button>
         <button class="btn-action" id="btn-log-out">Log Out</button>
       </div>
     </div>
 
   </div>
 
+  <div class="modal fade" id="theme-modal" tabindex="-1" aria-labelledby="theme-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="theme-modal-label">Choose a theme</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-secondary theme-option" data-theme="bulbasaur">Bulbasaur (Green)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="charmander">Charmander (Red)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="squirtle">Squirtle (Blue)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="pikachu">Pikachu (Yellow)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/auth.js" defer></script>
   <script src="script.js" defer></script>
 </body>

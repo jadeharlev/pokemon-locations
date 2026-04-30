@@ -43,6 +43,20 @@ public class StaticPagesTests {
         Assert.Equal("text/javascript", response.Content.Headers.ContentType?.MediaType);
     }
 
+    [Theory]
+    [InlineData("bulbasaur")]
+    [InlineData("charmander")]
+    [InlineData("squirtle")]
+    [InlineData("pikachu")]
+    public async Task ThemeStylesheetIsReachableAnonymously(string theme) {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/css/themes/{theme}.css");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/css", response.Content.Headers.ContentType?.MediaType);
+    }
+
     [Fact]
     public async Task IndexPageIsReachableAnonymously() {
         var client = factory.CreateClient();

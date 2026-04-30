@@ -43,6 +43,13 @@ public class AccountController : ControllerBase {
         return NoContent();
     }
 
+    [HttpPut("/account/theme")]
+    public async Task<IActionResult> UpdateTheme([FromBody] UpdateThemeRequest request) {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        await userRepository.UpdateThemeAsync(User.GetUserId(), request.Theme);
+        return NoContent();
+    }
+
     [HttpGet("/api/me")]
     public async Task<IActionResult> Me() {
         var user = await userRepository.GetByIdAsync(User.GetUserId());

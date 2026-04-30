@@ -1,8 +1,5 @@
 // ─── API helper ───
-const apiFetch = (path, options = {}) => fetch(`/api${path}`, {
-    ...options,
-    credentials: 'include'
-});
+const apiFetch = (path, options = {}) => PLAuth.authFetch(`/api${path}`, options);
 
 // ─── State ───
 let allLocations = [];
@@ -369,9 +366,10 @@ function setupActions() {
         if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
 
         try {
-            const res = await fetch('/account', { method: 'DELETE', credentials: 'include' });
+            const res = await PLAuth.authFetch('/account', { method: 'DELETE' });
             if (res.ok) {
-                window.location.reload();
+                PLAuth.clearCreds();
+                window.location.href = '/signin.html';
             } else {
                 alert('Failed to delete account.');
             }
@@ -382,9 +380,8 @@ function setupActions() {
     });
 
     document.getElementById('btn-log-out').addEventListener('click', () => {
-        // Clear browser's cached Basic Auth credentials by triggering a 401
-        // then reload to prompt fresh login
-        window.location.reload();
+        PLAuth.clearCreds();
+        window.location.href = '/signin.html';
     });
 }
 
@@ -397,6 +394,9 @@ function escapeHtml(str) {
 
 // ─── Bootstrap ───
 document.addEventListener('DOMContentLoaded', async () => {
+    PLAuth.requireAuth();
+    if (!PLAuth.getCreds()) return;
+
     // Set up event listeners
     document.getElementById('location-select').addEventListener('change', (e) => {
         fitSelectWidth(e.target);

@@ -76,6 +76,7 @@ builder.Services
                 }
             }
         };
+        options.SuppressWWWAuthenticateHeader = true;
     });
 
 builder.Services.AddAuthorization(options => {

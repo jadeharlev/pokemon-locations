@@ -2,277 +2,208 @@
 
 ## 1. Overview
 
-The frontend is a static website served by nginx that provides the user-facing interface for the Pokémon Locations application. It is built with raw HTML, CSS, and JavaScript, styled with Bootstrap, and communicates with the backend (web server) to display content and manage user-specific features like favorites.
+The frontend is a static website that provides the user-facing interface for the Pokémon Locations application. It is built with raw HTML, CSS, and JavaScript, styled with Bootstrap 5 plus a swappable theme system, and communicates with the web server (BFF) which in turn proxies content from the API.
 
-The frontend does **not** communicate with the API directly. All data requests go through the backend, which handles authentication and proxies content from the API.
+The frontend never communicates with the API directly. All `fetch()` calls go to the same-origin web server.
 
 | **Function** | **Choice** |
 | --- | --- |
 | Markup | *Raw HTML* |
-| Styling | *Bootstrap 5 (CDN) + custom CSS* |
+| Styling | *Bootstrap 5 (CDN) + per-theme CSS variables + custom CSS* |
 | Scripting | *Raw JavaScript (no framework)* |
-| Hosting | *nginx (containerized via Docker/Podman)* |
+| Hosting | *ASP.NET 10 web server (`UseStaticFiles()` over `wwwroot/`)* |
+
+Static files live in `Backend/PokemonLocations.WebServer/wwwroot/` and are served by the same ASP.NET process that handles `/account/*`, `/api/*`, and `/health/db`. There is no separate frontend container.
 
 ## 2. Architecture
 
-Per the course architecture, the full request flow is:
-
 ```
-Website (Browser) ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ Bearer Token)──▶ API Server
-                                                │                                      │
-                                                ▼                                      ▼
-                                          Web Server DB                           API Database
+Browser ──(HTTP w/ Basic Auth)──▶ Web Server ──(REST w/ Bearer Token)──▶ API Server
+                                       │                                      │
+                                       ▼                                      ▼
+                                 Web Server DB                           API Database
+                            (users, per-user state)            (locations, buildings, gyms)
 ```
 
-The frontend is the **Website (Browser)** in this diagram. It is a collection of static `.html`, `.css`, and `.js` files served by an nginx container. JavaScript in the browser makes `fetch()` calls to the **Web Server (backend)** using Basic Authentication. The backend authenticates the user, proxies content requests to the API Server using Bearer Tokens, and returns HTML or JSON responses to the browser.
-
-The frontend also loads Bootstrap CSS directly from Bootstrap, the only external resource the frontend fetches outside of the backend.
+The frontend is the **Browser** in this diagram. JS in the browser makes `fetch()` calls to the **Web Server** at the same origin, sending Basic Auth credentials. Bootstrap CSS/JS is loaded from jsDelivr — the only external resource the browser fetches outside the web server.
 
 ### 2.1 Backend Base URL
 
-All JavaScript `fetch()` calls go to the backend (web server):
-
 | **Environment** | **Base URL** |
 | --- | --- |
-| Development | `http://localhost:8082` |
+| Development (HTTP) | `http://localhost:3001` |
+| Development (HTTPS) | `https://localhost:3002` |
 | Production | `TBD` |
+
+All `fetch()` calls are same-origin (no CORS). The frontend is served from `wwwroot/` by the same web server that handles the API/account endpoints, so paths like `/api/locations` and `/account/signup` resolve naturally.
 
 ## 3. Pages
 
-The frontend consists of the following pages. Wireframes for each page are located in `docs/wireframes/`.
+The frontend is **3 HTML files**, all in `wwwroot/`:
 
-| **Page** | **File** | **Auth Required** | **Wireframe(s)** |
-| --- | --- | --- | --- |
-| Home | `index.html` | No | — |
-| Locations List | `locations.html` | No | `locations.png` |
-| Location Detail | `location.html` | No | `location.png`, `location_favorited.png`, `location_not_found.png` |
-| Building Detail | `building.html` | No | `building.png` |
-| My Favorites | `favorites.html` | Yes | `favorites.png`, `favorites_empty.png`, `favorites_not_found.png` |
-| Sign In | `signin.html` | No | `signin.png`, `signin_filled.png`, `signin_err.png`, `signin_pass_empty.png` |
-| Sign Up | `signin.html` | No | `signup.png`, `signup_pass_err.png`, `signup_user_err.png` |
+| **Page** | **File** | **Auth Required** |
+| --- | --- | --- |
+| Main app | `index.html` | Yes (Basic Auth via `auth.js`) |
+| Sign In | `signin.html` | No |
+| Sign Up | `signup.html` | No |
 
-### 3.1 Home (`index.html`)
+`index.html` is a single-page application that handles all logged-in user surface — locations, buildings, gyms tracking, badges, notes, stats, and theme switching. Navigating without credentials redirects to `/signin.html`.
 
-The landing page for the site. Introduces the application and directs users to browse locations.
+### 3.1 Main App (`index.html`)
 
-**Elements:**
-- Navigation bar (shared across all pages)
-- Card with site title, description, and a "Browse Locations" button linking to `locations.html`
-- Helper text beneath the button
+The application's primary view, behind Basic Auth. Uses `script.js` to render and manage all dynamic content.
 
-**Data:** None — this is a static page with no backend calls.
+**Sections (inline within the page):**
+- **Locations list** — populated from `GET /api/locations`; clicking a location loads its detail.
+- **Location detail** — name, description, image gallery, embedded video (if `videoUrl` present), and a buildings list. Populated from `GET /api/locations/{id}` plus `GET /api/locations/{id}/buildings`.
+- **Building tracking** — clicking a building toggles its visited status via `PUT`/`DELETE /api/me/visited/buildings/{locationId}/{buildingId}`. Building visited status is read from the merged proxy response.
+- **Visited progress** — a header strip that summarizes visited buildings per location ("3/5 Visited" / "All Locations Visited" / etc.).
+- **Badges** — read via `GET /api/me/badges`, toggled per-badge with `PUT`/`DELETE /api/me/badges/{badge}`.
+- **Notes** — per-location notes via `GET /api/me/notes/{locationId}`, `PUT /api/me/notes/{locationId}`, `DELETE /api/me/notes/{locationId}`.
+- **Stats** — aggregate stats (gymsComplete, locationsVisited, buildingsVisited) from `GET /api/me/stats`.
+- **Theme switcher** — calls `PUT /account/theme` with the chosen theme name; the response triggers a stylesheet swap (see §6).
+- **Account controls** — `DELETE /account` for self-deletion (cascades through all per-user tables).
 
-### 3.2 Locations List (`locations.html`)
+**Initial load behavior:**
+1. `auth.js` reads stored credentials from `sessionStorage`. If absent, redirect to `/signin.html`.
+2. Fetch `GET /api/me` to confirm credentials and load the current user's profile (display name, theme).
+3. Fetch `/api/locations`, `/api/me/stats`, `/api/me/badges` in parallel.
+4. Render the locations list; first location is auto-selected.
 
-Displays all Pokémon Red locations as a scrollable list of clickable cards.
+### 3.2 Sign In (`signin.html`)
 
-**Elements:**
-- Navigation bar
-- Search bar for client-side filtering of location names
-- List of location cards, each displaying the location name
-- Each card links to `location.html?id={locationId}`
+Standalone auth page. Pre-applies the user's last-used theme from `sessionStorage` so the form matches the look they're used to.
 
-**Data:** On page load, fetches `GET /locations` from the backend and dynamically renders the location cards.
-
-**Behavior:**
-- The search bar filters the displayed locations by name as the user types (client-side, no additional backend calls)
-- If the backend returns an error, a user-friendly error message is displayed in place of the location list
-
-### 3.3 Location Detail (`location.html`)
-
-Displays detailed information about a single location, including its images and buildings.
-
-**Elements:**
-- Navigation bar
-- Location name and description
-- Image gallery (from the location's images, ordered by `displayOrder`)
-- Video embed if a `videoUrl` is present
-- List of buildings within the location, each linking to `building.html?id={buildingId}&locationId={locationId}`
-- Favorite button (visible when logged in) to add/remove the location from favorites
-
-**Data:** On page load, reads `locationId` from the URL query string and fetches `GET /locations/{locationId}` from the backend. The response includes images and buildings.
+**Form fields:** email, password.
 
 **Behavior:**
-- If `locationId` is missing or invalid, display an error message
-- If the backend returns `404`, display a "Location not found" message (see `location_not_found.png`)
-- The favorite button toggles between favorited/unfavorited states (see `location_favorited.png`). Clicking it calls `POST /favorites/locations/{locationId}` or `DELETE /favorites/locations/{locationId}` on the backend
-- The favorite button is only visible if the user is logged in
+- On submit, the page constructs a Basic Auth header from the form values and probes `GET /api/me`.
+- A `200 OK` means credentials are valid: store `{email, password}` in `sessionStorage` (key `pl.auth`) and redirect to `/index.html`.
+- A `401 Unauthorized` displays an inline "Invalid email or password" error.
+- Other errors display a generic "Something went wrong" message.
 
-### 3.4 Building Detail (`building.html`)
+There is **no** `POST /account/login` endpoint — sign-in is implicit, since Basic Auth is sent on every authenticated request. The "login form" is just a credential probe.
 
-Displays detailed information about a single building. If the building is a gym, gym-specific details are shown.
+### 3.3 Sign Up (`signup.html`)
 
-**Elements:**
-- Navigation bar
-- Building name, type, and description
-- If the building type is `landmark`, the landmark description is displayed
-- If the building type is `gym`, gym details are shown: gym type, badge name, gym leader, gym order
-- Link back to the parent location
-- Favorite button (visible when logged in) to add/remove the building from favorites
+Standalone account creation page.
 
-**Data:** On page load, reads `buildingId` and `locationId` from the URL query string and fetches `GET /locations/{locationId}/buildings/{buildingId}` from the backend.
+**Form fields:** email, password (with confirmation), display name.
 
 **Behavior:**
-- If `buildingId` or `locationId` is missing or invalid, display an error message
-- If the backend returns `404`, display a "Building not found" message
-- The favorite button works the same as on the location detail page, calling `POST /favorites/buildings/{buildingId}` or `DELETE /favorites/buildings/{buildingId}`
-- The favorite button is only visible if the user is logged in
+- `POST /account/signup` with `{ email, password, displayName }`.
+- On `201 Created`: store credentials in `sessionStorage` and redirect to `/index.html` (the user is logged in immediately).
+- On `400 Bad Request`: display inline validation messages.
+- On `409 Conflict`: display "Email already registered".
 
-### 3.5 My Favorites (`favorites.html`)
+## 4. Authentication Flow
 
-Displays the logged-in user's favorited locations and buildings.
+The frontend uses HTTP Basic Authentication. There is no session, no cookie, no `POST /account/login`, no `POST /account/logout`. Every authenticated request carries a fresh `Authorization: Basic <base64(email:password)>` header.
 
-**Elements:**
-- Navigation bar
-- List of favorite locations, each linking to the corresponding location detail page
-- List of favorite buildings, each linking to the corresponding building detail page
-- Each favorite shows the resource name and a remove button
+### 4.1 Credential storage
 
-**Data:** On page load, fetches `GET /favorites/locations` and `GET /favorites/buildings` from the backend.
+Credentials are stored in `sessionStorage` under the key `pl.auth` as JSON:
 
-**Behavior:**
-- If the user is not logged in, redirect to `signin.html`
-- Clicking the remove button calls `DELETE /favorites/locations/{locationId}` or `DELETE /favorites/buildings/{buildingId}` and removes the item from the displayed list
-- If either favorites list is empty, display a message like "No favorite locations yet" (see `favorites_empty.png`)
-- If a favorited resource no longer exists, handle gracefully (see `favorites_not_found.png`)
-
-### 3.6 Sign In / Sign Up (`signin.html`)
-
-A combined page for user authentication and account creation.
-
-**Elements:**
-- Navigation bar
-- Form with email and password fields
-- "Sign In" button
-- "Sign Up" button or toggle to switch to registration mode
-- Error messages displayed inline for validation failures or incorrect credentials
-
-**Data:**
-- Sign in: `POST /account/login` with `{ "email", "password" }`
-- Sign up: `POST /account/register` with `{ "email", "password" }`
-
-**Behavior:**
-- On successful login, store the user's credentials (email/password) for subsequent Basic Auth requests and redirect to the previous page or `index.html`
-- On successful registration, display a success message and prompt the user to sign in
-- If the backend returns `401` on login, display "Invalid email or password" (see `signin_err.png`)
-- If the password field is empty on submission, display a validation error (see `signin_pass_empty.png`)
-- If the backend returns `409` on registration, display "Email already registered" (see `signup_user_err.png`)
-- If the backend returns `400` on registration, display the relevant validation errors (e.g., "Password must be at least 8 characters", see `signup_pass_err.png`)
-
-## 4. Navigation
-
-A consistent navigation bar appears on every page.
-
-**Elements:**
-- **Left side:** HOME, LOCATIONS, FAVORITES links
-- **Right side:** Search icon (expands into a search input on hover/focus), Sign In link
-
-**Behavior:**
-- The currently active page link is highlighted (blue, `#2457ff`)
-- The FAVORITES link directs to `favorites.html` (requires login — redirects to sign in if not authenticated)
-- The Sign In link changes to the user's email or "Account" when logged in
-- The nav search input provides client-side filtering where applicable (e.g., on the locations page)
-
-## 5. Authentication Flow
-
-The frontend uses Basic Authentication to communicate with the backend. Credentials are stored client-side after login and included in the `Authorization` header on every authenticated request.
-
-### 5.1 Storing Credentials
-
-After a successful login (`POST /account/login` returns `200`), the frontend stores the user's email and password in memory (JavaScript variable) for the duration of the browser session. These are used to create the Basic Auth header:
-
-```
-Authorization: Basic <base64(email:password)>
+```json
+{ "email": "ash@pokemon.com", "password": "..." }
 ```
 
-### 5.2 Authenticated Requests
+Using `sessionStorage` (not `localStorage`) means closing the tab logs the user out. There is no "Remember me" feature.
 
-All `fetch()` calls to protected backend endpoints include the Basic Auth header. If the backend returns `401`, the frontend redirects the user to `signin.html`.
+### 4.2 Authenticated fetch helper
 
-### 5.3 Logout
+`wwwroot/js/auth.js` exposes a `PLAuth` global with one key helper:
 
-The user can log out by clicking a logout option in the navigation. This clears the stored credentials from memory and redirects to `index.html`. No backend call is needed.
+```js
+const res = await PLAuth.authFetch('/api/me/stats');
+```
 
-## 6. Error Handling
+`authFetch()`:
+1. Reads stored credentials from `sessionStorage`.
+2. Adds an `Authorization: Basic ...` header if creds are present.
+3. Issues the request.
+4. If the response is `401 Unauthorized`, clears `sessionStorage` and redirects to `/signin.html` (unless already on a sign-in/sign-up page).
 
-The frontend handles errors from the backend and displays user-friendly messages.
+`script.js` wraps this further with `apiFetch(path)` which prepends `/api`, so `apiFetch('/locations')` ends up calling `/api/locations`.
+
+### 4.3 Logout
+
+The user logs out by clicking the logout control in `index.html`. This clears `sessionStorage` and redirects to `/signin.html`. No backend call is made.
+
+## 5. Error Handling
 
 | **Scenario** | **User-Facing Behavior** |
 | --- | --- |
-| Backend unreachable | Display "Unable to connect. Please try again later." |
-| `401 Unauthorized` | Redirect to `signin.html` |
-| `404 Not Found` | Display "[Resource] not found" message on the page |
-| `409 Conflict` (duplicate favorite) | Display "Already in your favorites" |
-| `409 Conflict` (duplicate email) | Display "Email already registered" |
-| `400 Bad Request` | Display the specific validation error(s) returned by the backend |
-| `500 Internal Server Error` | Display "Something went wrong. Please try again later." |
+| Web server unreachable | "Unable to connect. Please try again later." |
+| `401 Unauthorized` from any authenticated request | `auth.js` clears creds and redirects to `/signin.html` |
+| `404 Not Found` (location/building) | Inline "Not found" message in the relevant section |
+| `409 Conflict` (signup duplicate email) | "Email already registered" inline on the signup form |
+| `400 Bad Request` (signup validation) | Specific field-level error messages inline |
+| `500 Internal Server Error` | "Something went wrong. Please try again later." |
+| `502 Bad Gateway` (API unreachable from web server) | Same as 500 — generic failure message |
 
-Error messages are displayed inline on the page, not as browser alerts.
+Errors are displayed inline within page sections, never as `alert()` or `window.confirm()`.
+
+## 6. Theming
+
+The frontend supports four interchangeable visual themes, each a separate CSS file in `wwwroot/css/themes/`:
+
+| **Theme** | **File** | **Primary Color** |
+| --- | --- | --- |
+| `bulbasaur` | `bulbasaur.css` | Green |
+| `charmander` | `charmander.css` | Red/Orange |
+| `squirtle` | `squirtle.css` | Blue |
+| `pikachu` | `pikachu.css` | Yellow |
+
+### 6.1 How themes work
+
+Each theme file defines the same set of CSS custom properties (`--theme-primary`, `--theme-primary-light`, `--theme-primary-pale`, `--theme-primary-dark`, `--theme-ring-bg`, `--theme-text`, `--theme-muted`, `--theme-danger`, `--theme-border`, `--theme-check-fill`) on `:root`. All page styles reference those variables, so swapping the active theme is just swapping the linked stylesheet.
+
+Each HTML page includes the active theme via:
+```html
+<link id="theme-stylesheet" rel="stylesheet" href="/css/themes/bulbasaur.css" />
+```
+
+### 6.2 Theme switching
+
+The user chooses a theme in `index.html`. The page calls `PUT /account/theme` with the new theme name. On success, the `<link id="theme-stylesheet">` tag's `href` is updated and the new theme name is written to `sessionStorage` (key `pl.theme`) so future page loads (including `signin.html` after a logout) use it.
+
+`signin.html` and `signup.html` read `pl.theme` from `sessionStorage` on load and apply it before render to avoid a flash of the default theme.
+
+The valid theme names are enforced server-side by a Postgres enum (`user_theme`) on the `users.theme` column.
 
 ## 7. Style Guide
 
-The frontend uses **Bootstrap 5** (loaded via CDN) as its base styling framework, supplemented by custom CSS for page-specific layouts and components.
+The frontend uses Bootstrap 5 (loaded via CDN) plus per-theme CSS custom properties for colors. Bootstrap provides the grid, typography defaults, and component primitives; the theme stylesheets override the accent colors.
 
 ### 7.1 Bootstrap
 
-Bootstrap is loaded from the jsDelivr CDN:
-- CSS: `https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css`
-- JS: `https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js`
+```
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css
+https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js
+```
 
-Bootstrap provides the base grid system, typography defaults, and component styles (buttons, forms, modals, etc.).
+### 7.2 Color tokens
 
-### 7.2 Colors
-
-| **Role** | **Value** | **Usage** |
-| --- | --- | --- |
-| Primary | `#2457ff` | Active nav links, primary buttons ("Browse Locations") |
-| Primary Hover | `#1b45cc` | Button hover state |
-| Link Hover | `#7db7ff` | Nav link hover (non-active) |
-| Background | `#ffffff` | Page background |
-| Card Background | `#ececec` / `#d9d9d9` | Main card, location cards, search bar |
-| Card Hover | `#bfbfbf` / `#c9c9c9` | Hover states for interactive cards |
-| Nav Background | `#f3f3f3` | Navigation bar |
-| Text Primary | `#111111` | Body text, headings |
-| Text Secondary | `#333333` / `#555555` | Descriptions, helper text |
-| Nav Border | `#222222` | Bottom border on the navigation bar |
+All color choices flow through CSS custom properties on `:root`, defined per-theme. Page styles reference the variables — never hard-coded hex values for theme-driven colors. See `wwwroot/css/themes/bulbasaur.css` for the full list of variables every theme must define.
 
 ### 7.3 Typography
 
-| **Element** | **Font** | **Size** | **Weight** |
-| --- | --- | --- | --- |
-| Body | Arial, sans-serif | — | 400 |
-| Site Title | Arial, sans-serif | 72px (desktop), 50px (tablet), 38px (mobile) | 700 |
-| Nav Links | Arial, sans-serif | 22px (desktop), 18px (tablet) | 700 |
-| Location Cards | Arial, sans-serif | 66px (desktop), 42px (tablet), 30px (mobile) | 700 |
-| Site Description | Arial, sans-serif | 30px (desktop), 22px (tablet), 18px (mobile) | 400 |
-| Buttons | Arial, sans-serif | 24px (desktop), 20px (tablet), 18px (mobile) | 700 |
-| Helper Text | Arial, sans-serif | 18px (desktop), 16px (mobile) | 400 |
+| **Element** | **Font** | **Weight** |
+| --- | --- | --- |
+| Body | Inter (Google Fonts), Arial fallback | 400 |
+| Headings | Inter | 600/700 |
 
-### 7.4 Responsive Breakpoints
+Inter is loaded from Google Fonts on each page.
 
-The frontend uses custom CSS queries for responsive design:
+### 7.4 Favicon
 
-| **Breakpoint** | **Target** |
-| --- | --- |
-| `> 992px` | Desktop |
-| `601px – 992px` | Tablet |
-| `≤ 600px` | Mobile |
-
-On mobile, the navigation bar stacks vertically, cards shrink in height and font size, and content areas expand to 90% width.
-
-### 7.5 Component Patterns
-
-- **Cards:** Rectangular, no border-radius on location cards, 24px border-radius on the hero card. Centered text, bold. Hover state darkens the background.
-- **Buttons:** Rounded corners (14px border-radius), bold text, primary blue background with darker hover state.
-- **Search bars:** Rounded (18px border-radius), gray background, focus state adds a blue box-shadow outline (`#9ec5ff`).
-- **Navigation:** Fixed top bar with gray background and a bottom border. Links are uppercase and bold.
+`favicon-32.png`, `favicon-180.png`, and `favicon-192.png` live in `wwwroot/` and are referenced from the `<head>` of each page (32 for tabs, 180 for Apple touch, 192 for Android home screen).
 
 ## 8. Future Considerations
 
-- Dynamic rendering of location cards from backend data (replacing hardcoded cards)
-- Location detail and building detail pages
-- Favorites page implementation
-- Sign in / sign up page implementation
-- Persistent login state (e.g., `localStorage`) vs in-memory only
-- Client-side search across buildings and favorites, not just locations
-- Loading indicators while backend requests are in progress
+- Standalone pages for locations / buildings / gyms (currently consolidated into the SPA-style `index.html`)
+- User-uploaded images per location (SE498-68 — schema and endpoints not yet shipped)
+- Persistent login across tab close (`localStorage` instead of `sessionStorage`)
+- Loading indicators while fetches are in progress
+- Search across locations / buildings / gyms

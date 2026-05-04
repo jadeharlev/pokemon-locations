@@ -68,6 +68,5 @@ All services run in Docker containers orchestrated by Docker Compose. The fronte
 For detailed specifications, see:
 
 - [`docs/specs/SPEC_FRONTEND.md`](specs/SPEC_FRONTEND.md) — Frontend pages, behavior, style guide
-- [`docs/specs/SPEC_BACKEND.md`](specs/SPEC_BACKEND.md) — Backend endpoints, schema, auth, logging, testing
+- [`docs/specs/SPEC_WEBSERVER.md`](specs/SPEC_WEBSERVER.md) — Web server (BFF) endpoints, schema, caching, validation
 - [`docs/specs/SPEC_API.md`](specs/SPEC_API.md) — API endpoints, schema, validation rules
-- [`docs/specs/SPEC_WEBSERVER.md`](specs/SPEC_WEBSERVER.md) — Web server BFF endpoints and architecture

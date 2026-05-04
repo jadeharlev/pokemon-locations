@@ -58,6 +58,7 @@ The web server has three responsibilities:
 |--------|------|------|-------------|
 | `POST` | `/account/signup` | Anonymous | Create account → `201` |
 | `GET` | `/api/me` | Basic | Get authenticated user profile → `200` |
+| `PUT` | `/account/theme` | Basic | Switch the user's active visual theme → `204`. Body: `{ "theme": "bulbasaur" \| "charmander" \| "squirtle" \| "pikachu" }`. Invalid values → `400`. |
 | `DELETE` | `/account` | Basic | Delete account (cascades) → `204` |
 
 ### 3.4 API Proxy (with merging)

@@ -2,17 +2,19 @@
 
 ## 1. Overview
 
-The Pokémon Locations API is a RESTful service that provides CRUD operations for locations, buildings, gyms, and location images from the Pokémon Red world.
+The Pokémon Locations API is a **read-only** RESTful service that exposes locations, buildings, gyms, and location images from the Pokémon Red world.
 
-The **primary consumer** is the web server (backend). The frontend doesn't call the API directly, with requests routed through the web server.
+The **only consumer** is the web server (BFF). The frontend never calls the API directly — requests are proxied through the web server.
 
-| **Function** | **Choice** | 
-| --- | --- | 
-| Database | *Postgres* | 
+| **Function** | **Choice** |
+| --- | --- |
+| Database | *Postgres* |
 | Data Access | *Dapper* |
-| API Documentation/Spec | Swagger/OpenAPI (`/swagger`) |
+| API Documentation/Spec | Swagger/OpenAPI (`/swagger`, with Bearer Authorize button) |
 
 In line with the rest of the tech stack, everything runs on *ASP.NET 10* with containerization being handled by *Docker/Podman*.
+
+> **Why read-only?** Content data (locations, buildings, gyms) is canonical to Pokémon Red and seeded entirely via SQL migrations. There is no use case for an HTTP client to mutate it, so Create/Update/Delete endpoints were removed (SE498-57) as defense-in-depth. New seed data is added by writing a new migration in `PokemonLocations.Api/Database/Migrations/`.
 
 ## 2. Authentication
 
@@ -29,6 +31,8 @@ The only endpoint that does **not** require a token is `GET /health/db`.
 | Missing token | `401 Unauthorized` |
 | Invalid signature, issuer, or audience | `401 Unauthorized` |
 | Expired token (`exp` past) | `401 Unauthorized` |
+
+Swagger UI exposes an **Authorize** button that lets a developer paste a JWT and call protected endpoints from the browser; the bearer scheme is declared on every operation.
 
 ### 2.1 Expected claims
 
@@ -51,16 +55,18 @@ dotnet run --project Backend/PokemonLocations.TokenIssuer -- --client team-alpha
 
 `--client` (required) becomes the `sub` claim. `--days` (optional, default `90`) sets the expiry window. The signed JWT is written to stdout. There is no in-API issuance endpoint.
 
+For local development, `./issue-token.sh --client <id>` is a convenience wrapper that pre-sets `Jwt__Key` to the dev key in `docker-compose.debug.yml`.
+
 ## 3. Schema
 
-The API maintains a PostgreSQL database containing content/domain data only. User-specific data (accounts, favorites) is managed by the backend's separate database.
+The API maintains a PostgreSQL database containing content/domain data only. User-specific data is owned by the web server's separate database.
 
 Schema is managed as a series of versioned SQL migration scripts under `PokemonLocations.Api/Database/Migrations/`, embedded into the API assembly and applied on application startup via [DbUp](https://dbup.readthedocs.io/). Each script runs at most once per database; re-running the API against an already-migrated database is a no-op. Data access from C# uses Dapper on top of a singleton `NpgsqlDataSource`.
 
 ### 3.1 **Enum:** `building_type`
 
-``` 
-gym 
+```
+gym
 pokemon_center
 poke_mart
 residential
@@ -68,11 +74,13 @@ landmark
 lab
 ```
 
+This enum is enforced at the database level — inserts with any other value are rejected by Postgres.
+
 ### 3.2 `Location`
 
 | **Column** | **Type** | **Constraints** | **Notes** |
 | --- | --- | --- | --- |
-| `location_id` | `INT` | `PRIMARY KEY` | | 
+| `location_id` | `INT` | `PRIMARY KEY` | |
 | `name` | `VARCHAR(255)` | `NOT NULL` | |
 | `description` | `TEXT` | | |
 | `video_url` | `VARCHAR(500)` | | |
@@ -81,39 +89,39 @@ lab
 
 | **Column** | **Type** | **Constraints** | **Notes** |
 | --- | --- | --- | --- |
-| `image_id` | `INT` | `PRIMARY KEY` | | 
-| `location_id` | `INT` | `NOT NULL` | Foreign Key |
+| `image_id` | `INT` | `PRIMARY KEY` | |
+| `location_id` | `INT` | `NOT NULL` | Foreign key to `locations.location_id` |
 | `image_url` | `VARCHAR(500)` | `NOT NULL` | |
-| `display_order` | `INT` | `NOT NULL` `DEFAULT 0` | 
-| `caption` | `VARCHAR(255)` | | | 
+| `display_order` | `INT` | `NOT NULL` `DEFAULT 0` | |
+| `caption` | `VARCHAR(255)` | | |
 
 ### 3.4 `Building`
 
 | **Column** | **Type** | **Constraints** | **Notes** |
 | --- | --- | --- | --- |
-| `building_id` | `INT` | `PRIMARY KEY` | | 
-| `location_id` | `INT` | `NOT NULL` | Foreign Key |
+| `building_id` | `INT` | `PRIMARY KEY` | |
+| `location_id` | `INT` | `NOT NULL` | Foreign key to `locations.location_id` |
 | `name` | `VARCHAR(255)` | `NOT NULL` | |
-| `building_type` | `ENUM` | `NOT NULL` | |
-| `description` | `TEXT` | | | 
-| `landmark_description` | `TEXT` | | Only used when building type is landmark |
+| `building_type` | `building_type` | `NOT NULL` | See enum above |
+| `description` | `TEXT` | | |
+| `landmark_description` | `TEXT` | | Only populated when `building_type = 'landmark'` |
 
-### 3.5 `Gym` (building with `type = gym`)
+### 3.5 `Gym` (companion row for buildings with `building_type = gym`)
 
 | **Column** | **Type** | **Constraints** | **Notes** |
 | --- | --- | --- | --- |
-| `gym_id` | `INT` | `PRIMARY KEY` | | 
-| `building_id` | `INT` | `NOT NULL` `UNIQUE` | Foreign Key |
-| `gym_type` | `VARCHAR(50)` | `NOT NULL` | e.g. Fire |
+| `gym_id` | `INT` | `PRIMARY KEY` | |
+| `building_id` | `INT` | `NOT NULL` `UNIQUE` | Foreign key to `buildings.building_id` |
+| `gym_type` | `VARCHAR(50)` | `NOT NULL` | e.g. Fire, Water, Rock |
 | `badge_name` | `VARCHAR(100)` | `NOT NULL` | |
-| `gym_leader` | `VARCHAR(100)` | `NOT NULL` | | 
-| `gym_order` | `INT` | `NOT NULL` | 1-8 gym progression order |
+| `gym_leader` | `VARCHAR(100)` | `NOT NULL` | |
+| `gym_order` | `INT` | `NOT NULL` | 1–8 gym progression order |
 
 ## 4. API Endpoints
 
 **Base URL:** `https://localhost:8081` (dev), `TBD` (prod)
 
-All requests and response bodies use `application/json`.
+All response bodies use `application/json`. Every endpoint except `GET /health/db` requires a Bearer token; `POST`, `PUT`, and `DELETE` against any path return `405 Method Not Allowed`.
 
 ### 4.1 Health
 
@@ -124,106 +132,55 @@ No auth required.
 Check database connection.
 
 | **Status** | **Response** |
-| --- | --- | 
-| `200 OK` | "Database connected" |
+| --- | --- |
+| `200 OK` | `"Database Connected"` |
 | `500 Internal Server Error` | Database unreachable |
 
 ### 4.2 Locations
- 
-#### `GET /locations`
- 
-Retrieve all locations.
- 
+
+#### `GET /Locations`
+
+Retrieve all locations (flat list, no nested images/buildings).
+
 **Response `200 OK`:**
 ```json
 [
   {
     "locationId": 1,
     "name": "Pallet Town",
-    "description": "The player's small hometown...",
-    "videoUrl": "/videos/pallet-town.mp4"
+    "description": "A fairly new and quiet town...",
+    "videoUrl": null
   }
 ]
 ```
- 
-#### `GET /locations/{locationId}`
- 
-Retrieve a single location with its images and buildings.
- 
+
+#### `GET /Locations/{locationId}`
+
+Retrieve a single location by ID.
+
 **Response `200 OK`:**
 ```json
 {
   "locationId": 1,
   "name": "Pallet Town",
-  "description": "The player's small hometown...",
-  "videoUrl": "/videos/pallet-town.mp4",
-  "images": [
-    {
-      "imageId": 1,
-      "imageUrl": "/images/pallet-town-overview.png",
-      "displayOrder": 1,
-      "caption": "Pallet Town overview"
-    }
-  ],
-  "buildings": [
-    {
-      "buildingId": 1,
-      "name": "Oak Pokémon Research Lab",
-      "buildingType": "lab",
-      "description": "The Pokémon research lab of Professor Oak."
-    }
-  ]
+  "description": "A fairly new and quiet town...",
+  "videoUrl": null
 }
 ```
- 
+
 | **Status** | **Response** |
 |---|---|
-| `200 OK` | Location object with images and buildings |
-| `404 Not Found` | `{ "error": "Location not found" }` |
- 
-#### `POST /locations`
- 
-Create a new location.
- 
-**Request:**
-```json
-{
-  "name": "Pallet Town",
-  "description": "The player's small hometown...",
-  "videoUrl": "/videos/pallet-town.mp4"
-}
-```
- 
-| **Status** | **Response** |
-|---|---|
-| `201 Created` | Created location object (with `locationId`) |
-| `400 Bad Request` | Validation errors |
- 
-#### `PUT /locations/{locationId}`
- 
-Update a location. Request body is the same shape as `POST`.
- 
-| **Status** | **Response** |
-|---|---|
-| `200 OK` | Updated location object |
-| `400 Bad Request` | Validation errors |
-| `404 Not Found` | Location does not exist |
- 
-#### `DELETE /locations/{locationId}`
- 
-Delete a location and all associated images, buildings, and gyms.
- 
-| **Status** | **Response** |
-|---|---|
-| `204 No Content` | Deleted |
+| `200 OK` | Location object |
 | `404 Not Found` | Location does not exist |
 
+> The API returns the bare `Location` row; nested `images` and `buildings` are not included on this endpoint. Clients fetch them via the dedicated images/buildings endpoints below.
+
 ### 4.3 Location Images
- 
+
 #### `GET /locations/{locationId}/images`
- 
+
 Retrieve all images for a location, ordered by `displayOrder`.
- 
+
 **Response `200 OK`:**
 ```json
 [
@@ -236,56 +193,18 @@ Retrieve all images for a location, ordered by `displayOrder`.
   }
 ]
 ```
- 
+
 | **Status** | **Response** |
 |---|---|
 | `200 OK` | Array of image objects |
 | `404 Not Found` | Location does not exist |
- 
-#### `POST /locations/{locationId}/images`
- 
-Add an image to a location.
- 
-**Request:**
-```json
-{
-  "imageUrl": "/images/pallet-town-overview.png",
-  "displayOrder": 1,
-  "caption": "Pallet Town overview"
-}
-```
- 
-| **Status** | **Response** |
-|---|---|
-| `201 Created` | Created image object (with `imageId`) |
-| `400 Bad Request` | Validation errors |
-| `404 Not Found` | Location does not exist |
- 
-#### `PUT /locations/{locationId}/images/{imageId}`
- 
-Update an image's URL, order, or caption. Request body same shape as `POST`.
- 
-| **Status** | **Response** |
-|---|---|
-| `200 OK` | Updated image object |
-| `400 Bad Request` | Validation errors |
-| `404 Not Found` | Location or image does not exist |
- 
-#### `DELETE /locations/{locationId}/images/{imageId}`
- 
-Remove an image.
- 
-| **Status** | **Response** |
-|---|---|
-| `204 No Content` | Deleted |
-| `404 Not Found` | Location or image does not exist |
 
 ### 4.4 Buildings
- 
+
 #### `GET /locations/{locationId}/buildings`
- 
+
 Retrieve all buildings for a location.
- 
+
 **Response `200 OK`:**
 ```json
 [
@@ -294,21 +213,21 @@ Retrieve all buildings for a location.
     "locationId": 2,
     "name": "Pewter City Gym",
     "buildingType": "gym",
-    "description": "The official Pewter City Pokémon Gym.",
+    "description": "A small building featuring a Japanese rock garden...",
     "landmarkDescription": null
   }
 ]
 ```
- 
+
 | **Status** | **Response** |
 |---|---|
 | `200 OK` | Array of building objects |
 | `404 Not Found` | Location does not exist |
- 
+
 #### `GET /locations/{locationId}/buildings/{buildingId}`
- 
-Retrieve a single building. If the building is a gym, gym details are included.
- 
+
+Retrieve a single building. If the building's `buildingType` is `"gym"`, the gym record is included in the `gym` field.
+
 **Response `200 OK` (gym):**
 ```json
 {
@@ -316,10 +235,11 @@ Retrieve a single building. If the building is a gym, gym details are included.
   "locationId": 2,
   "name": "Pewter City Gym",
   "buildingType": "gym",
-  "description": "The official Pewter City Pokémon Gym.",
+  "description": "A small building featuring a Japanese rock garden...",
   "landmarkDescription": null,
   "gym": {
     "gymId": 1,
+    "buildingId": 4,
     "gymType": "Rock",
     "badgeName": "Boulder Badge",
     "gymLeader": "Brock",
@@ -327,74 +247,20 @@ Retrieve a single building. If the building is a gym, gym details are included.
   }
 }
 ```
- 
+
 | **Status** | **Response** |
 |---|---|
 | `200 OK` | Building object (with `gym` if applicable) |
 | `404 Not Found` | Location or building does not exist |
- 
-#### `POST /locations/{locationId}/buildings`
- 
-Create a building. If `buildingType` is `"gym"`, the `gym` object is required.
- 
-**Request (gym):**
-```json
-{
-  "name": "Pewter City Gym",
-  "buildingType": "gym",
-  "description": "The official Pewter City Pokémon Gym.",
-  "gym": {
-    "gymType": "Rock",
-    "badgeName": "Boulder Badge",
-    "gymLeader": "Brock",
-    "gymOrder": 1
-  }
-}
-```
- 
-**Request (landmark):**
-```json
-{
-  "name": "Pewter Museum of Science",
-  "buildingType": "landmark",
-  "description": "A museum showcasing rare fossils and space exhibits.",
-  "landmarkDescription": "Features a Kabutops fossil and a Space Shuttle exhibit."
-}
-```
- 
-| **Status** | **Response** |
-|---|---|
-| `201 Created` | Created building object |
-| `400 Bad Request` | Validation errors |
-| `404 Not Found` | Location does not exist |
- 
-#### `PUT /locations/{locationId}/buildings/{buildingId}`
- 
-Update a building. Request body same as `POST`.
- 
-| **Status** | **Response** |
-|---|---|
-| `200 OK` | Updated building object |
-| `400 Bad Request` | Validation errors |
-| `404 Not Found` | Location or building does not exist |
- 
-#### `DELETE /locations/{locationId}/buildings/{buildingId}`
- 
-Delete a building and its gym record (if applicable).
- 
-| **Status** | **Response** |
-|---|---|
-| `204 No Content` | Deleted |
-| `404 Not Found` | Location or building does not exist |
 
 ### 4.5 Gyms
- 
-Read-only convenience endpoints for viewing all gyms across locations, sorted by progression order.
- 
+
+Convenience endpoints for viewing all gyms across locations, sorted by progression order.
+
 #### `GET /gyms`
- 
-Retrieve all gyms in progression order (1–8).
- 
+
+Retrieve all gyms in progression order (1–8). Returns `GymSummary` rows that include the parent location and building names so clients don't need a second roundtrip.
+
 **Response `200 OK`:**
 ```json
 [
@@ -411,70 +277,60 @@ Retrieve all gyms in progression order (1–8).
   }
 ]
 ```
- 
+
 #### `GET /gyms/{gymId}`
- 
+
 Retrieve a single gym by gym ID.
- 
+
 **Response `200 OK`:** Same shape as a single element from the list above.
- 
+
 | **Status** | **Response** |
 |---|---|
 | `200 OK` | Gym object |
 | `404 Not Found` | Gym does not exist |
 
 ## 5. Error Handling
- 
-All error responses use the following format:
- 
-```json
-{
-  "error": "A human readable error message"
-}
-```
- 
+
 **Status Codes:**
- 
+
 | **Code** | **Meaning** | **When Used** |
 |---|---|---|
-| `200` | OK | Successful read or update |
-| `201` | Created | Successful resource creation |
-| `204` | No Content | Successful deletion |
-| `400` | Bad Request | Validation failure or bad body |
+| `200` | OK | Successful read |
 | `401` | Unauthorized | Missing or invalid Bearer token |
 | `404` | Not Found | Resource does not exist |
+| `405` | Method Not Allowed | Write verbs (POST/PUT/DELETE) against any path |
 | `500` | Internal Server Error | Unexpected failure |
 
-## 6. Data Validation Rules
- 
-These rules are enforced by the API and covered by unit tests.
- 
+ASP.NET's default error response shape is used; there is no custom error envelope.
+
+## 6. Schema-Level Validation
+
+Because the API is read-only, all data validation lives at the migration / database level rather than in HTTP request handlers:
+
 **Locations:**
-- `name` — required, max 255 characters
-- `description` — optional
-- `videoUrl` — optional, max 500 characters
- 
+- `name` is `NOT NULL` and `VARCHAR(255)`
+- `video_url` is `VARCHAR(500)`
+
 **Location Images:**
-- `imageUrl` — required, max 500 characters
-- `displayOrder` — required, integer >= 0
-- `caption` — optional, max 255 characters
-- Parent `locationId` must reference an existing location
- 
+- `image_url` is `NOT NULL` and `VARCHAR(500)`
+- `display_order` is `NOT NULL` and `DEFAULT 0`
+- `caption` is `VARCHAR(255)`
+- `location_id` is `NOT NULL` and references `locations.location_id`
+
 **Buildings:**
-- `name` — required, max 255 characters
-- `buildingType` — required, must be a valid `building_type` enum value
-- `description` — optional
-- `landmarkDescription` — optional (only meaningful when type is `landmark`)
-- Parent `locationId` must reference an existing location
- 
-**Gyms** (required when `buildingType` is `"gym"`):
-- `gymType` — required, max 50 characters
-- `badgeName` — required, max 100 characters
-- `gymLeader` — required, max 100 characters
-- `gymOrder` — required, integer 1–8
+- `name` is `NOT NULL` and `VARCHAR(255)`
+- `building_type` must be a valid `building_type` enum value (DB-enforced)
+- `location_id` is `NOT NULL` and references `locations.location_id`
+
+**Gyms:**
+- `gym_type`, `badge_name`, `gym_leader` are all `NOT NULL`
+- `gym_order` is `NOT NULL` (canonically 1–8 for Kanto, but not constrained)
+- `building_id` is `NOT NULL UNIQUE` and references `buildings.building_id` (one gym row per gym building)
+
+Migrations that violate any of these constraints fail at apply-time, surfacing a startup error.
 
 ## 7. Future Considerations
 
-- Potentially have Pokémon types for locations (would require additional logic, tables, endpoints, and minor restructuring of responses)
+- Potentially track Pokémon types per location (would require additional logic, tables, endpoints)
 - API versioning when integrating with another team's API
-- Integration with other team's API
+- Integration with another team's API

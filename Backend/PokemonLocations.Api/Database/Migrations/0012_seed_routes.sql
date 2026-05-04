@@ -1,5 +1,6 @@
 -- Seed all 25 Kanto routes plus their canonical named buildings.
 -- Routes 1-25 are the connecting paths between cities and dungeons in Pokémon Red.
+-- Buildings on each route reflect Bulbapedia's "Places of interest" listings for Pokémon Red specifically.
 
 -- ============================================================
 -- Routes 1-25
@@ -33,8 +34,28 @@ INSERT INTO locations (name, description, video_url) VALUES
     ('Route 25', 'A grass route east of Route 24, ending at Bill''s Sea Cottage.', NULL);
 
 -- ============================================================
--- Canonical named buildings on routes
+-- Canonical named buildings on routes (per Bulbapedia for Pokémon Red)
 -- ============================================================
+
+-- Route 2: Trade House
+INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+VALUES (
+    (SELECT location_id FROM locations WHERE name = 'Route 2'),
+    'Trade House',
+    'residential',
+    'A small house on Route 2 where the resident offers an in-game trade of Mr. Mime for Abra.',
+    NULL
+);
+
+-- Route 4: Mt. Moon Pokémon Center (one of only two route-side Centers in Kanto)
+INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+VALUES (
+    (SELECT location_id FROM locations WHERE name = 'Route 4'),
+    'Mt. Moon Pokémon Center',
+    'pokemon_center',
+    'A standalone Pokémon Center at the western end of Route 4, just east of Mt. Moon. One of only two Centers in Kanto found outside a populated area, and home to the famous Magikarp salesman.',
+    NULL
+);
 
 -- Route 5: Pokémon Day Care
 INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
@@ -42,8 +63,38 @@ VALUES (
     (SELECT location_id FROM locations WHERE name = 'Route 5'),
     'Pokémon Day Care',
     'landmark',
-    'A small house run by an elderly couple who will raise a Pokémon while the trainer adventures.',
+    'A small house run by an elderly couple who will raise a Pokémon while the trainer adventures, gaining one experience point per step taken.',
     'The original Pokémon Day Care from the Kanto region.'
+);
+
+-- Route 10: Rock Tunnel Pokémon Center (the other route-side Center in Kanto)
+INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+VALUES (
+    (SELECT location_id FROM locations WHERE name = 'Route 10'),
+    'Rock Tunnel Pokémon Center',
+    'pokemon_center',
+    'A standalone Pokémon Center on Route 10, just south of the Rock Tunnel entrance. One of only two Centers in Kanto found outside a populated area.',
+    NULL
+);
+
+-- Route 11: Route 11 Gate
+INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+VALUES (
+    (SELECT location_id FROM locations WHERE name = 'Route 11'),
+    'Route 11 Gate',
+    'landmark',
+    'A two-floor gate building separating Route 11 from the western entrance of Diglett''s Cave. The upper floor hosts an in-game trade and an NPC who awards the Itemfinder once the player has registered 30+ species in the Pokédex.',
+    NULL
+);
+
+-- Route 12: Lavender Gate
+INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+VALUES (
+    (SELECT location_id FROM locations WHERE name = 'Route 12'),
+    'Lavender Gate',
+    'landmark',
+    'A passage structure on Route 12 separating its northern portion from the long Silence Bridge that runs south toward Fuchsia City.',
+    NULL
 );
 
 -- Route 12: Fishing Guru's House
@@ -52,26 +103,26 @@ VALUES (
     (SELECT location_id FROM locations WHERE name = 'Route 12'),
     'Fishing Guru''s House',
     'residential',
-    'Home of a fishing enthusiast who gives the player the Super Rod.',
+    'A house south of the Route 11 exit where the younger of the Fishing Brothers offers the trainer the Super Rod.',
     NULL
 );
 
--- Route 17: Cycling Road Rest House
+-- Route 22: Pokémon League Reception Gate
 INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
 VALUES (
-    (SELECT location_id FROM locations WHERE name = 'Route 17'),
-    'Cycling Road Rest House',
+    (SELECT location_id FROM locations WHERE name = 'Route 22'),
+    'Pokémon League Reception Gate',
     'landmark',
-    'A small rest stop along Cycling Road where bikers can take a break.',
-    'A welcome reprieve in the middle of Kanto''s longest cycling route.'
+    'A checkpoint building between Route 22 and Route 23 that verifies a trainer has earned all eight Kanto badges before granting passage to the Pokémon League.',
+    'The final gatekeeper between Kanto''s trainers and the Indigo Plateau.'
 );
 
--- Route 25: Bill's Sea Cottage
+-- Route 25: Sea Cottage (Bill's home)
 INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
 VALUES (
     (SELECT location_id FROM locations WHERE name = 'Route 25'),
-    'Bill''s Sea Cottage',
+    'Sea Cottage',
     'residential',
-    'Seaside home of Bill, the renowned Pokémon researcher who designed the PC storage system.',
+    'The seaside home of Bill, the renowned Pokémon researcher who designed the PC storage system, located at the eastern end of Route 25.',
     NULL
 );

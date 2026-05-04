@@ -7,47 +7,47 @@
 INSERT INTO locations (name, description, video_url) VALUES
     (
         'Viridian Forest',
-        'A dense maze of trees north of Viridian City. Bug-types like Caterpie, Weedle, and Pikachu hide in the tall grass while Bug Catchers wait to challenge new trainers.',
+        'A woodland maze on Route 2 between Viridian City and Pewter City. Bug Catchers wait to challenge trainers, and wild Caterpie, Weedle, and Pidgey populate the tall grass; for many trainers it is their first major dungeon.',
         NULL
     ),
     (
         'Mt. Moon',
-        'A multi-floor cave system between Pewter City and Cerulean City. Home to Clefairy, Zubat, and Geodude, and the site of the Dome and Helix fossil discovery.',
+        'A three-floor cave system between Pewter City and Cerulean City, one of the few places where wild Clefairy can be found. The mountain is a source of Moon Stones formed from meteorite shards, and it is the site of the Dome Fossil / Helix Fossil choice after Team Rocket''s defeat.',
         NULL
     ),
     (
         'Diglett''s Cave',
-        'An underground tunnel connecting Route 2 and Route 11, populated almost entirely by Diglett and Dugtrio.',
+        'An underground tunnel dug by wild Diglett and Dugtrio that connects Route 2 (near Pewter City) to Route 11 (near Vermilion City), populated almost entirely by those two species.',
         NULL
     ),
     (
         'Rock Tunnel',
-        'A pitch-black cave east of Cerulean City that requires Flash to navigate. Connects Route 9 to Route 10 and is filled with rock-types.',
+        'A naturally formed two-floor underground cave on Route 10, connecting Cerulean City to Lavender Town. Pitch-black inside and requires a light source (Flash) to navigate; home to Zubat, Geodude, Machop, and Onix.',
         NULL
     ),
     (
         'Power Plant',
-        'An abandoned electrical facility off Route 10. Wild electric-types roam its halls, and the legendary Zapdos rests in its depths.',
+        'An abandoned electrical facility located south of the Route 10 Pokémon Center, accessible only by Surfing. Houses numerous Electric-type Pokémon and serves as the roost of the legendary Zapdos.',
         NULL
     ),
     (
         'Cerulean Cave',
-        'A treacherous post-game cave just north of Cerulean City, accessible only after defeating the Elite Four. The legendary Mewtwo dwells in its deepest chamber.',
+        'A post-game cave in the northwest corner of Cerulean City, accessible only after the player defeats the Elite Four and enters the Hall of Fame. The legendary Mewtwo, having escaped the Pokémon Mansion, dwells in its deepest chamber.',
         NULL
     ),
     (
         'Seafoam Islands',
-        'A frozen island chain south of Fuchsia City. Strength and Surf are required to navigate its ice block puzzles. The legendary Articuno can be found within.',
+        'A pair of caves on Route 20 between Fuchsia City and Cinnabar Island. The puzzle requires using Strength to push boulders into the water, blocking the current so trainers can descend to the lowest floor where the legendary Articuno resides.',
         NULL
     ),
     (
         'Victory Road',
-        'A treacherous mountain trail leading to the Indigo Plateau. Strength and boulder puzzles bar all but the most prepared trainers.',
+        'A mountain dungeon on Route 23 leading to the Indigo Plateau. Strength is required to push boulders onto pressure switches, and Flash is needed to see through its dark interior.',
         NULL
     ),
     (
         'Indigo Plateau',
-        'The seat of the Pokémon League. The Elite Four and Champion battle here in succession, awaiting any trainer who can earn all eight Kanto badges.',
+        'The capital of the Kanto Pokémon League and the final destination for trainers seeking to challenge the Elite Four and Champion. A trainer must hold all eight Kanto badges before being granted entry.',
         NULL
     );
 

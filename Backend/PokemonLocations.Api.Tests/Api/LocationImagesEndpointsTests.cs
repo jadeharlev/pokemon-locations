@@ -33,11 +33,26 @@ public class LocationImagesEndpointsTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private async Task<int> CreateLocationAsync(string name = "Test Town") {
-        var response = await client.PostAsJsonAsync("/locations", new Location { Name = name });
-        response.EnsureSuccessStatusCode();
-        var created = await response.Content.ReadFromJsonAsync<Location>();
-        return created!.LocationId;
+    private async Task<int> SeedLocationAsync(string name = "Test Town") {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        return await conn.ExecuteScalarAsync<int>(
+            "INSERT INTO locations (name) VALUES (@Name) RETURNING location_id",
+            new { Name = name });
+    }
+
+    private async Task<int> SeedImageAsync(
+        int locationId,
+        string imageUrl = "/images/test.png",
+        int displayOrder = 0,
+        string? caption = null) {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        return await conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO location_images (location_id, image_url, display_order, caption)
+              VALUES (@LocationId, @ImageUrl, @DisplayOrder, @Caption)
+              RETURNING image_id",
+            new { LocationId = locationId, ImageUrl = imageUrl, DisplayOrder = displayOrder, Caption = caption });
     }
 
     [Fact]
@@ -48,7 +63,7 @@ public class LocationImagesEndpointsTests : IAsyncLifetime {
 
     [Fact]
     public async Task GetAllImagesReturnsEmptyArrayWhenLocationHasNoImages() {
-        var locationId = await CreateLocationAsync();
+        var locationId = await SeedLocationAsync();
 
         var response = await client.GetAsync($"/locations/{locationId}/images");
 
@@ -59,83 +74,31 @@ public class LocationImagesEndpointsTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task PostImageReturnsCreated() {
-        var locationId = await CreateLocationAsync();
+    public async Task GetAllImagesReturnsSeededImagesOrderedByDisplayOrder() {
+        var locationId = await SeedLocationAsync();
+        await SeedImageAsync(locationId, "/images/c.png", 3, "C");
+        await SeedImageAsync(locationId, "/images/a.png", 1, "A");
+        await SeedImageAsync(locationId, "/images/b.png", 2, "B");
 
-        var response = await client.PostAsJsonAsync($"/locations/{locationId}/images", new LocationImage {
-            ImageUrl = "/images/overview.png",
-            DisplayOrder = 1,
-            Caption = "Overview"
-        });
+        var response = await client.GetAsync($"/locations/{locationId}/images");
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<LocationImage>();
-        Assert.NotNull(created);
-        Assert.True(created!.ImageId > 0);
-        Assert.Equal(locationId, created.LocationId);
+        response.EnsureSuccessStatusCode();
+        var images = await response.Content.ReadFromJsonAsync<List<LocationImage>>();
+        Assert.NotNull(images);
+        Assert.Equal(new[] { 1, 2, 3 }, images!.Select(i => i.DisplayOrder));
     }
 
-    [Fact]
-    public async Task PostImageReturnsNotFoundWhenLocationDoesNotExist() {
-        var response = await client.PostAsJsonAsync("/locations/999999/images", new LocationImage {
-            ImageUrl = "/images/x.png"
-        });
+    [Theory]
+    [InlineData("POST", "/locations/1/images")]
+    [InlineData("PUT", "/locations/1/images/1")]
+    [InlineData("DELETE", "/locations/1/images/1")]
+    public async Task WriteVerbsReturnMethodNotAllowed(string method, string path) {
+        var request = new HttpRequestMessage(new HttpMethod(method), path) {
+            Content = JsonContent.Create(new LocationImage { ImageUrl = "/x.png" })
+        };
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
+        var response = await client.SendAsync(request);
 
-    [Fact]
-    public async Task PostImageWithoutImageUrlReturnsBadRequest() {
-        var locationId = await CreateLocationAsync();
-
-        var response = await client.PostAsJsonAsync($"/locations/{locationId}/images", new LocationImage {
-            ImageUrl = string.Empty
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task PutUpdatesExistingImage() {
-        var locationId = await CreateLocationAsync();
-        var post = await client.PostAsJsonAsync($"/locations/{locationId}/images", new LocationImage {
-            ImageUrl = "/images/old.png",
-            DisplayOrder = 1,
-            Caption = "Old"
-        });
-        var created = await post.Content.ReadFromJsonAsync<LocationImage>();
-
-        var put = await client.PutAsJsonAsync(
-            $"/locations/{locationId}/images/{created!.ImageId}",
-            new LocationImage {
-                ImageId = created.ImageId,
-                LocationId = locationId,
-                ImageUrl = "/images/new.png",
-                DisplayOrder = 2,
-                Caption = "New"
-            });
-        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
-
-        var get = await client.GetAsync($"/locations/{locationId}/images");
-        var images = await get.Content.ReadFromJsonAsync<List<LocationImage>>();
-        var loaded = Assert.Single(images!);
-        Assert.Equal("/images/new.png", loaded.ImageUrl);
-        Assert.Equal("New", loaded.Caption);
-    }
-
-    [Fact]
-    public async Task DeleteRemovesImage() {
-        var locationId = await CreateLocationAsync();
-        var post = await client.PostAsJsonAsync($"/locations/{locationId}/images", new LocationImage {
-            ImageUrl = "/images/doomed.png"
-        });
-        var created = await post.Content.ReadFromJsonAsync<LocationImage>();
-
-        var del = await client.DeleteAsync($"/locations/{locationId}/images/{created!.ImageId}");
-        Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-
-        var get = await client.GetAsync($"/locations/{locationId}/images");
-        var images = await get.Content.ReadFromJsonAsync<List<LocationImage>>();
-        Assert.Empty(images!);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 }

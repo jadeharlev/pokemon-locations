@@ -44,26 +44,46 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
             new { Name = name });
     }
 
-    private static Building NewLandmarkBuilding(int locationId, string name = "Test Landmark") => new() {
-        LocationId = locationId,
-        Name = name,
-        BuildingType = BuildingType.Landmark,
-        Description = "A landmark.",
-        LandmarkDescription = "Notable feature."
-    };
+    private static readonly Npgsql.NameTranslation.NpgsqlSnakeCaseNameTranslator EnumNameTranslator = new();
 
-    private static Building NewGymBuilding(int locationId, string name = "Test Gym") => new() {
-        LocationId = locationId,
-        Name = name,
-        BuildingType = BuildingType.Gym,
-        Description = "A gym.",
-        Gym = new Gym {
-            GymType = "Rock",
-            BadgeName = "Boulder Badge",
-            GymLeader = "Brock",
-            GymOrder = 1
-        }
-    };
+    private async Task<int> SeedBuildingAsync(
+        int locationId,
+        string name,
+        BuildingType buildingType = BuildingType.Landmark,
+        string? description = "A building.",
+        string? landmarkDescription = "A notable feature.") {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await connection.ExecuteScalarAsync<int>(
+            @"INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+              VALUES (@LocationId, @Name, CAST(@BuildingType AS building_type), @Description, @LandmarkDescription)
+              RETURNING building_id",
+            new {
+                LocationId = locationId,
+                Name = name,
+                BuildingType = EnumNameTranslator.TranslateMemberName(buildingType.ToString()),
+                Description = description,
+                LandmarkDescription = landmarkDescription
+            });
+    }
+
+    private async Task SeedGymAsync(
+        int buildingId,
+        string gymType = "Rock",
+        string badgeName = "Boulder Badge",
+        string gymLeader = "Brock",
+        int gymOrder = 1) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            @"INSERT INTO gyms (building_id, gym_type, badge_name, gym_leader, gym_order)
+              VALUES (@BuildingId, @GymType, @BadgeName, @GymLeader, @GymOrder)",
+            new {
+                BuildingId = buildingId,
+                GymType = gymType,
+                BadgeName = badgeName,
+                GymLeader = gymLeader,
+                GymOrder = gymOrder
+            });
+    }
 
     [Fact]
     public async Task GetAllByLocationAsyncReturnsEmptyWhenNoBuildingsExist() {
@@ -79,11 +99,10 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
     public async Task GetAllByLocationAsyncReturnsOnlyBuildingsForGivenLocation() {
         var palletId = await SeedLocationAsync("Pallet Town");
         var pewterId = await SeedLocationAsync("Pewter City");
+        await SeedBuildingAsync(palletId, "Oak's Lab");
+        await SeedBuildingAsync(palletId, "Player's House");
+        await SeedBuildingAsync(pewterId, "Pewter Museum");
         var repository = CreateNewRepository();
-
-        await repository.CreateAsync(NewLandmarkBuilding(palletId, "Oak's Lab"));
-        await repository.CreateAsync(NewLandmarkBuilding(palletId, "Player's House"));
-        await repository.CreateAsync(NewLandmarkBuilding(pewterId, "Pewter Museum"));
 
         var palletBuildings = (await repository.GetAllByLocationAsync(palletId)).ToList();
 
@@ -103,8 +122,8 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetByIdAsyncReturnsBuildingWithoutGymWhenTypeIsNotGym() {
         var locationId = await SeedLocationAsync();
+        var newId = await SeedBuildingAsync(locationId, "Pewter Museum", BuildingType.Landmark);
         var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewLandmarkBuilding(locationId, "Pewter Museum"));
 
         var loaded = await repository.GetByIdAsync(newId);
 
@@ -117,8 +136,9 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetByIdAsyncReturnsBuildingWithGymWhenTypeIsGym() {
         var locationId = await SeedLocationAsync("Pewter City");
+        var newId = await SeedBuildingAsync(locationId, "Pewter City Gym", BuildingType.Gym);
+        await SeedGymAsync(newId);
         var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewGymBuilding(locationId, "Pewter City Gym"));
 
         var loaded = await repository.GetByIdAsync(newId);
 
@@ -130,179 +150,5 @@ public class DapperBuildingRepositoryTests : IAsyncLifetime {
         Assert.Equal("Brock", loaded.Gym.GymLeader);
         Assert.Equal(1, loaded.Gym.GymOrder);
         Assert.Equal(newId, loaded.Gym.BuildingId);
-    }
-
-    [Fact]
-    public async Task CreateAsyncInsertsNonGymBuildingAndReturnsId() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewLandmarkBuilding(locationId));
-
-        Assert.True(newId > 0);
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var buildingCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM buildings");
-        var gymCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM gyms");
-        Assert.Equal(1, buildingCount);
-        Assert.Equal(0, gymCount);
-    }
-
-    [Fact]
-    public async Task CreateAsyncInsertsGymBuildingAndGymRowAtomically() {
-        var locationId = await SeedLocationAsync("Pewter City");
-        var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewGymBuilding(locationId, "Pewter City Gym"));
-
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var buildingCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM buildings");
-        var gymCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM gyms");
-        var gymBuildingId = await connection.ExecuteScalarAsync<int>("SELECT building_id FROM gyms LIMIT 1");
-        Assert.Equal(1, buildingCount);
-        Assert.Equal(1, gymCount);
-        Assert.Equal(newId, gymBuildingId);
-    }
-
-    [Fact]
-    public async Task CreateAsyncRollsBackBothRowsWhenGymInsertFails() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var building = NewGymBuilding(locationId, "Doomed Gym");
-        building.Gym!.GymType = null!;
-
-        await Assert.ThrowsAnyAsync<Exception>(async () =>
-            await repository.CreateAsync(building));
-
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var buildingCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM buildings");
-        var gymCount = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM gyms");
-        Assert.Equal(0, buildingCount);
-        Assert.Equal(0, gymCount);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncMutatesExistingBuildingAndReturnsTrue() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewLandmarkBuilding(locationId, "Old Name"));
-
-        var update = new Building {
-            BuildingId = newId,
-            LocationId = locationId,
-            Name = "New Name",
-            BuildingType = BuildingType.Landmark,
-            Description = "Updated description",
-            LandmarkDescription = "Updated landmark"
-        };
-
-        var result = await repository.UpdateAsync(update);
-
-        Assert.True(result);
-        var loaded = await repository.GetByIdAsync(newId);
-        Assert.Equal("New Name", loaded!.Name);
-        Assert.Equal("Updated description", loaded.Description);
-        Assert.Equal("Updated landmark", loaded.LandmarkDescription);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncChangingTypeFromGymToLandmarkDeletesGymRow() {
-        var locationId = await SeedLocationAsync("Pewter City");
-        var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewGymBuilding(locationId, "Pewter City Gym"));
-
-        var update = new Building {
-            BuildingId = newId,
-            LocationId = locationId,
-            Name = "Old Gym Memorial",
-            BuildingType = BuildingType.Landmark,
-            Description = "Used to be a gym.",
-            LandmarkDescription = "A memorial to Brock.",
-            Gym = null
-        };
-
-        var result = await repository.UpdateAsync(update);
-
-        Assert.True(result);
-        var loaded = await repository.GetByIdAsync(newId);
-        Assert.Equal(BuildingType.Landmark, loaded!.BuildingType);
-        Assert.Null(loaded.Gym);
-
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var gymCount = await connection.ExecuteScalarAsync<long>(
-            "SELECT COUNT(*) FROM gyms WHERE building_id = @BuildingId",
-            new { BuildingId = newId });
-        Assert.Equal(0, gymCount);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncChangingTypeFromLandmarkToGymInsertsGymRow() {
-        var locationId = await SeedLocationAsync("Cerulean City");
-        var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewLandmarkBuilding(locationId, "Future Gym Site"));
-
-        var update = new Building {
-            BuildingId = newId,
-            LocationId = locationId,
-            Name = "Cerulean City Gym",
-            BuildingType = BuildingType.Gym,
-            Description = "The Cerulean City Gym.",
-            Gym = new Gym {
-                GymType = "Water",
-                BadgeName = "Cascade Badge",
-                GymLeader = "Misty",
-                GymOrder = 2
-            }
-        };
-
-        var result = await repository.UpdateAsync(update);
-
-        Assert.True(result);
-        var loaded = await repository.GetByIdAsync(newId);
-        Assert.Equal(BuildingType.Gym, loaded!.BuildingType);
-        Assert.NotNull(loaded.Gym);
-        Assert.Equal("Misty", loaded.Gym!.GymLeader);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncReturnsFalseWhenBuildingDoesNotExist() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var result = await repository.UpdateAsync(new Building {
-            BuildingId = 999_999,
-            LocationId = locationId,
-            Name = "Ghost",
-            BuildingType = BuildingType.Lab
-        });
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task DeleteAsyncRemovesBuildingAndCascadesGymRow() {
-        var locationId = await SeedLocationAsync("Pewter City");
-        var repository = CreateNewRepository();
-        var newId = await repository.CreateAsync(NewGymBuilding(locationId, "Pewter City Gym"));
-
-        var result = await repository.DeleteAsync(newId);
-
-        Assert.True(result);
-        Assert.Null(await repository.GetByIdAsync(newId));
-
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var gymCount = await connection.ExecuteScalarAsync<long>(
-            "SELECT COUNT(*) FROM gyms WHERE building_id = @BuildingId",
-            new { BuildingId = newId });
-        Assert.Equal(0, gymCount);
-    }
-
-    [Fact]
-    public async Task DeleteAsyncReturnsFalseWhenBuildingDoesNotExist() {
-        var repository = CreateNewRepository();
-
-        var result = await repository.DeleteAsync(999_999);
-
-        Assert.False(result);
     }
 }

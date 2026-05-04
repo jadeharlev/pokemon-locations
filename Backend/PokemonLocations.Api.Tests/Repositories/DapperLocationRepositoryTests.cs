@@ -33,20 +33,21 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
             NullLogger<DapperLocationRepository>.Instance);
     }
 
-    [Fact]
-    public async Task CreateAsyncReturnsNewIdGreaterThanZero() {
-        var dapperLocationRepository = CreateNewRepository();
-        var newId = await dapperLocationRepository.CreateAsync(NewLocation("Pallet Town"));
-        Assert.True(newId > 0);
+    private async Task<int> SeedLocationAsync(string name, string? description = null, string? videoUrl = null) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await connection.ExecuteScalarAsync<int>(
+            @"INSERT INTO locations (name, description, video_url)
+              VALUES (@Name, @Description, @VideoUrl)
+              RETURNING location_id",
+            new { Name = name, Description = description, VideoUrl = videoUrl });
     }
 
     [Fact]
-    public async Task GetByIdAsyncReturnsInsertedRowAfterCreate() {
-        var dapperLocationRepository = CreateNewRepository();
-        var input = NewLocation("Viridian City", "First city", "https://example.com/v.mp4");
-        var newId = await dapperLocationRepository.CreateAsync(input);
+    public async Task GetByIdAsyncReturnsSeededRow() {
+        var newId = await SeedLocationAsync("Viridian City", "First city", "https://example.com/v.mp4");
+        var repository = CreateNewRepository();
 
-        var loaded = await dapperLocationRepository.GetByIdAsync(newId);
+        var loaded = await repository.GetByIdAsync(newId);
 
         Assert.NotNull(loaded);
         Assert.Equal(newId, loaded!.LocationId);
@@ -57,20 +58,21 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
 
     [Fact]
     public async Task GetByIdAsyncReturnsNullForMissingId() {
-        var dapperLocationRepository = CreateNewRepository();
-        var loaded = await dapperLocationRepository.GetByIdAsync(999_999);
+        var repository = CreateNewRepository();
+
+        var loaded = await repository.GetByIdAsync(999_999);
+
         Assert.Null(loaded);
     }
 
     [Fact]
     public async Task GetAllAsyncReturnsAllRowsOrderedByLocationId() {
-        var dapperLocationRepository = CreateNewRepository();
+        await SeedLocationAsync("A");
+        await SeedLocationAsync("B");
+        await SeedLocationAsync("C");
+        var repository = CreateNewRepository();
 
-        await dapperLocationRepository.CreateAsync(NewLocation("A"));
-        await dapperLocationRepository.CreateAsync(NewLocation("B"));
-        await dapperLocationRepository.CreateAsync(NewLocation("C"));
-
-        var all = (await dapperLocationRepository.GetAllAsync()).ToList();
+        var all = (await repository.GetAllAsync()).ToList();
 
         Assert.Equal(3, all.Count);
         Assert.Equal(new[] { "A", "B", "C" }, all.Select(l => l.Name));
@@ -78,71 +80,14 @@ public class DapperLocationRepositoryTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task UpdateAsyncMutatesExistingRowAndReturnsTrue() {
-        var dapperLocationRepository = CreateNewRepository();
-        var newId = await dapperLocationRepository.CreateAsync(NewLocation("Old name"));
-
-        var updated = new Location {
-            LocationId = newId,
-            Name = "New name",
-            Description = "Updated desc",
-            VideoUrl = "https://example.com/new.mp4"
-        };
-
-        var ok = await dapperLocationRepository.UpdateAsync(updated);
-
-        Assert.True(ok);
-
-        var loaded = await dapperLocationRepository.GetByIdAsync(newId);
-        Assert.Equal("New name", loaded!.Name);
-        Assert.Equal("Updated desc", loaded.Description);
-        Assert.Equal("https://example.com/new.mp4", loaded.VideoUrl);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncReturnsFalseWhenRowMissing() {
-        var dapperLocationRepository = CreateNewRepository();
-
-        var ok = await dapperLocationRepository.UpdateAsync(new Location {
-            LocationId = 999_999,
-            Name = "Ghost"
-        });
-
-        Assert.False(ok);
-    }
-
-    [Fact]
-    public async Task DeleteAsyncRemovesExistingRowAndReturnsTrue() {
-        var dapperLocationRepository = CreateNewRepository();
-        var newId = await dapperLocationRepository.CreateAsync(NewLocation("Doomed"));
-
-        var ok = await dapperLocationRepository.DeleteAsync(newId);
-
-        Assert.True(ok);
-        Assert.Null(await dapperLocationRepository.GetByIdAsync(newId));
-    }
-
-    [Fact]
-    public async Task DeleteAsyncReturnsFalseWhenRowMissing() {
-        var dapperLocationRepository = CreateNewRepository();
-
-        var ok = await dapperLocationRepository.DeleteAsync(999_999);
-
-        Assert.False(ok);
-    }
-
-    [Fact]
     public async Task NullDescriptionAndVideoUrlRoundTrip() {
-        var dapperLocationRepository = CreateNewRepository();
-        var newId = await dapperLocationRepository.CreateAsync(new Location { Name = "NullsOnly" });
+        var newId = await SeedLocationAsync("NullsOnly");
+        var repository = CreateNewRepository();
 
-        var loaded = await dapperLocationRepository.GetByIdAsync(newId);
+        var loaded = await repository.GetByIdAsync(newId);
 
         Assert.NotNull(loaded);
         Assert.Null(loaded!.Description);
         Assert.Null(loaded.VideoUrl);
     }
-
-    private static Location NewLocation(string name, string? description = null, string? videoUrl = null) =>
-        new() { Name = name, Description = description, VideoUrl = videoUrl };
 }

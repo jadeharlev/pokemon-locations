@@ -9,6 +9,8 @@ namespace PokemonLocations.Api.Tests.Api;
 
 [Collection("Postgres")]
 public class GymsEndpointsTests : IAsyncLifetime {
+    private static readonly Npgsql.NameTranslation.NpgsqlSnakeCaseNameTranslator EnumNameTranslator = new();
+
     private readonly PostgresFixture postgres;
     private PokemonLocationsApiFactory factory = null!;
     private HttpClient client = null!;
@@ -33,32 +35,37 @@ public class GymsEndpointsTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private async Task<int> CreateGymBuildingAsync(
+    private async Task<int> SeedGymBuildingAsync(
         string locationName,
         string buildingName,
         string gymType,
         string badgeName,
         string gymLeader,
         int gymOrder) {
-        var locResponse = await client.PostAsJsonAsync("/locations", new Location { Name = locationName });
-        var location = await locResponse.Content.ReadFromJsonAsync<Location>();
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
 
-        var buildingResponse = await client.PostAsJsonAsync(
-            $"/locations/{location!.LocationId}/buildings",
-            new Building {
+        var locationId = await conn.ExecuteScalarAsync<int>(
+            "INSERT INTO locations (name) VALUES (@Name) RETURNING location_id",
+            new { Name = locationName });
+
+        var buildingId = await conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO buildings (location_id, name, building_type, description)
+              VALUES (@LocationId, @Name, CAST(@BuildingType AS building_type), @Description)
+              RETURNING building_id",
+            new {
+                LocationId = locationId,
                 Name = buildingName,
-                BuildingType = BuildingType.Gym,
-                Description = "A gym.",
-                Gym = new Gym {
-                    GymType = gymType,
-                    BadgeName = badgeName,
-                    GymLeader = gymLeader,
-                    GymOrder = gymOrder
-                }
+                BuildingType = EnumNameTranslator.TranslateMemberName(BuildingType.Gym.ToString()),
+                Description = "A gym."
             });
-        buildingResponse.EnsureSuccessStatusCode();
-        var building = await buildingResponse.Content.ReadFromJsonAsync<Building>();
-        return building!.BuildingId;
+
+        await conn.ExecuteAsync(
+            @"INSERT INTO gyms (building_id, gym_type, badge_name, gym_leader, gym_order)
+              VALUES (@BuildingId, @GymType, @BadgeName, @GymLeader, @GymOrder)",
+            new { BuildingId = buildingId, GymType = gymType, BadgeName = badgeName, GymLeader = gymLeader, GymOrder = gymOrder });
+
+        return buildingId;
     }
 
     [Fact]
@@ -73,9 +80,9 @@ public class GymsEndpointsTests : IAsyncLifetime {
 
     [Fact]
     public async Task GetAllGymsReturnsAllGymsOrderedByGymOrder() {
-        await CreateGymBuildingAsync("Vermilion City", "Vermilion Gym", "Electric", "Thunder Badge", "Lt. Surge", 3);
-        await CreateGymBuildingAsync("Pewter City", "Pewter Gym", "Rock", "Boulder Badge", "Brock", 1);
-        await CreateGymBuildingAsync("Cerulean City", "Cerulean Gym", "Water", "Cascade Badge", "Misty", 2);
+        await SeedGymBuildingAsync("Vermilion City", "Vermilion Gym", "Electric", "Thunder Badge", "Lt. Surge", 3);
+        await SeedGymBuildingAsync("Pewter City", "Pewter Gym", "Rock", "Boulder Badge", "Brock", 1);
+        await SeedGymBuildingAsync("Cerulean City", "Cerulean Gym", "Water", "Cascade Badge", "Misty", 2);
 
         var response = await client.GetAsync("/gyms");
 
@@ -88,7 +95,7 @@ public class GymsEndpointsTests : IAsyncLifetime {
 
     [Fact]
     public async Task GetByIdReturnsGymWhenItExists() {
-        await CreateGymBuildingAsync("Pewter City", "Pewter City Gym", "Rock", "Boulder Badge", "Brock", 1);
+        await SeedGymBuildingAsync("Pewter City", "Pewter City Gym", "Rock", "Boulder Badge", "Brock", 1);
         var list = await client.GetFromJsonAsync<List<GymSummary>>("/gyms");
         var seeded = list!.Single();
 

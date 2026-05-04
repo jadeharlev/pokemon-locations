@@ -5,7 +5,4 @@ namespace PokemonLocations.Api.Repositories;
 public interface ILocationImageRepository {
     Task<IEnumerable<LocationImage>> GetAllByLocationAsync(int locationId);
     Task<LocationImage?> GetByIdAsync(int imageId);
-    Task<int> CreateAsync(LocationImage image);
-    Task<bool> UpdateAsync(LocationImage image);
-    Task<bool> DeleteAsync(int imageId);
 }

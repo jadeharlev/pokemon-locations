@@ -9,6 +9,8 @@ namespace PokemonLocations.Api.Tests.Api;
 
 [Collection("Postgres")]
 public class BuildingsEndpointsTests : IAsyncLifetime {
+    private static readonly Npgsql.NameTranslation.NpgsqlSnakeCaseNameTranslator EnumNameTranslator = new();
+
     private readonly PostgresFixture postgres;
     private PokemonLocationsApiFactory factory = null!;
     private HttpClient client = null!;
@@ -33,11 +35,42 @@ public class BuildingsEndpointsTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
-    private async Task<int> CreateLocationAsync(string name = "Test Town") {
-        var response = await client.PostAsJsonAsync("/locations", new Location { Name = name });
-        response.EnsureSuccessStatusCode();
-        var created = await response.Content.ReadFromJsonAsync<Location>();
-        return created!.LocationId;
+    private async Task<int> SeedLocationAsync(string name = "Test Town") {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        return await conn.ExecuteScalarAsync<int>(
+            "INSERT INTO locations (name) VALUES (@Name) RETURNING location_id",
+            new { Name = name });
+    }
+
+    private async Task<int> SeedBuildingAsync(
+        int locationId,
+        string name,
+        BuildingType buildingType = BuildingType.Landmark,
+        string? description = null,
+        string? landmarkDescription = null) {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        return await conn.ExecuteScalarAsync<int>(
+            @"INSERT INTO buildings (location_id, name, building_type, description, landmark_description)
+              VALUES (@LocationId, @Name, CAST(@BuildingType AS building_type), @Description, @LandmarkDescription)
+              RETURNING building_id",
+            new {
+                LocationId = locationId,
+                Name = name,
+                BuildingType = EnumNameTranslator.TranslateMemberName(buildingType.ToString()),
+                Description = description,
+                LandmarkDescription = landmarkDescription
+            });
+    }
+
+    private async Task SeedGymAsync(int buildingId, string gymType, string badgeName, string gymLeader, int gymOrder) {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        await conn.ExecuteAsync(
+            @"INSERT INTO gyms (building_id, gym_type, badge_name, gym_leader, gym_order)
+              VALUES (@BuildingId, @GymType, @BadgeName, @GymLeader, @GymOrder)",
+            new { BuildingId = buildingId, GymType = gymType, BadgeName = badgeName, GymLeader = gymLeader, GymOrder = gymOrder });
     }
 
     [Fact]
@@ -48,7 +81,7 @@ public class BuildingsEndpointsTests : IAsyncLifetime {
 
     [Fact]
     public async Task GetAllBuildingsReturnsEmptyArrayWhenNoBuildingsExist() {
-        var locationId = await CreateLocationAsync();
+        var locationId = await SeedLocationAsync();
 
         var response = await client.GetAsync($"/locations/{locationId}/buildings");
 
@@ -59,45 +92,26 @@ public class BuildingsEndpointsTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task PostLandmarkBuildingReturnsCreated() {
-        var locationId = await CreateLocationAsync("Pewter City");
+    public async Task GetByIdReturnsSeededBuilding() {
+        var locationId = await SeedLocationAsync();
+        var buildingId = await SeedBuildingAsync(locationId, "Oak's Lab", BuildingType.Lab, "Research lab.");
 
-        var response = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = "Pewter Museum",
-            BuildingType = BuildingType.Landmark,
-            Description = "A museum.",
-            LandmarkDescription = "Has fossils."
-        });
+        var get = await client.GetAsync($"/locations/{locationId}/buildings/{buildingId}");
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<Building>();
-        Assert.NotNull(created);
-        Assert.True(created!.BuildingId > 0);
-        Assert.Equal(locationId, created.LocationId);
-        Assert.Equal(BuildingType.Landmark, created.BuildingType);
+        get.EnsureSuccessStatusCode();
+        var loaded = await get.Content.ReadFromJsonAsync<Building>();
+        Assert.Equal("Oak's Lab", loaded!.Name);
+        Assert.Equal(BuildingType.Lab, loaded.BuildingType);
     }
 
     [Fact]
-    public async Task PostGymBuildingPersistsGymDetails() {
-        var locationId = await CreateLocationAsync("Pewter City");
+    public async Task GetByIdReturnsBuildingWithGymDetails() {
+        var locationId = await SeedLocationAsync("Pewter City");
+        var buildingId = await SeedBuildingAsync(locationId, "Pewter City Gym", BuildingType.Gym, "The gym.");
+        await SeedGymAsync(buildingId, "Rock", "Boulder Badge", "Brock", 1);
 
-        var response = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = "Pewter City Gym",
-            BuildingType = BuildingType.Gym,
-            Description = "The gym.",
-            Gym = new Gym {
-                GymType = "Rock",
-                BadgeName = "Boulder Badge",
-                GymLeader = "Brock",
-                GymOrder = 1
-            }
-        });
+        var get = await client.GetAsync($"/locations/{locationId}/buildings/{buildingId}");
 
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
-        var created = await response.Content.ReadFromJsonAsync<Building>();
-        Assert.NotNull(created);
-
-        var get = await client.GetAsync($"/locations/{locationId}/buildings/{created!.BuildingId}");
         get.EnsureSuccessStatusCode();
         var loaded = await get.Content.ReadFromJsonAsync<Building>();
         Assert.NotNull(loaded);
@@ -107,94 +121,25 @@ public class BuildingsEndpointsTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task PostBuildingReturnsNotFoundWhenLocationDoesNotExist() {
-        var response = await client.PostAsJsonAsync("/locations/999999/buildings", new Building {
-            Name = "Ghost",
-            BuildingType = BuildingType.Landmark
-        });
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task PostBuildingWithoutNameReturnsBadRequest() {
-        var locationId = await CreateLocationAsync();
-
-        var response = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = string.Empty,
-            BuildingType = BuildingType.Landmark
-        });
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task GetByIdReturnsBuildingAfterCreate() {
-        var locationId = await CreateLocationAsync();
-        var post = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = "Oak's Lab",
-            BuildingType = BuildingType.Lab,
-            Description = "Research lab."
-        });
-        var created = await post.Content.ReadFromJsonAsync<Building>();
-
-        var get = await client.GetAsync($"/locations/{locationId}/buildings/{created!.BuildingId}");
-
-        get.EnsureSuccessStatusCode();
-        var loaded = await get.Content.ReadFromJsonAsync<Building>();
-        Assert.Equal("Oak's Lab", loaded!.Name);
-        Assert.Equal(BuildingType.Lab, loaded.BuildingType);
-    }
-
-    [Fact]
     public async Task GetByIdReturnsNotFoundForMissingBuildingId() {
-        var locationId = await CreateLocationAsync();
+        var locationId = await SeedLocationAsync();
 
         var response = await client.GetAsync($"/locations/{locationId}/buildings/999999");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    [Fact]
-    public async Task PutUpdatesExistingBuilding() {
-        var locationId = await CreateLocationAsync();
-        var post = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = "Old Name",
-            BuildingType = BuildingType.Landmark,
-            LandmarkDescription = "Old landmark"
-        });
-        var created = await post.Content.ReadFromJsonAsync<Building>();
+    [Theory]
+    [InlineData("POST", "/locations/1/buildings")]
+    [InlineData("PUT", "/locations/1/buildings/1")]
+    [InlineData("DELETE", "/locations/1/buildings/1")]
+    public async Task WriteVerbsReturnMethodNotAllowed(string method, string path) {
+        var request = new HttpRequestMessage(new HttpMethod(method), path) {
+            Content = JsonContent.Create(new Building { Name = "x", BuildingType = BuildingType.Landmark })
+        };
 
-        var put = await client.PutAsJsonAsync(
-            $"/locations/{locationId}/buildings/{created!.BuildingId}",
-            new Building {
-                BuildingId = created.BuildingId,
-                LocationId = locationId,
-                Name = "New Name",
-                BuildingType = BuildingType.Landmark,
-                LandmarkDescription = "New landmark"
-            });
-        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var response = await client.SendAsync(request);
 
-        var get = await client.GetAsync($"/locations/{locationId}/buildings/{created.BuildingId}");
-        var loaded = await get.Content.ReadFromJsonAsync<Building>();
-        Assert.Equal("New Name", loaded!.Name);
-        Assert.Equal("New landmark", loaded.LandmarkDescription);
-    }
-
-    [Fact]
-    public async Task DeleteRemovesBuilding() {
-        var locationId = await CreateLocationAsync();
-        var post = await client.PostAsJsonAsync($"/locations/{locationId}/buildings", new Building {
-            Name = "Doomed",
-            BuildingType = BuildingType.Landmark
-        });
-        var created = await post.Content.ReadFromJsonAsync<Building>();
-
-        var del = await client.DeleteAsync($"/locations/{locationId}/buildings/{created!.BuildingId}");
-        Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-
-        var get = await client.GetAsync($"/locations/{locationId}/buildings/{created.BuildingId}");
-        Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 }

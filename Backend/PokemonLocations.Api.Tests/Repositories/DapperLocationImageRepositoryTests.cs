@@ -1,7 +1,6 @@
 using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
 using Npgsql;
-using PokemonLocations.Api.Data.Models;
 using PokemonLocations.Api.Repositories;
 using PokemonLocations.Api.Tests.Infrastructure;
 
@@ -40,16 +39,18 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
             new { Name = name });
     }
 
-    private static LocationImage NewImage(
+    private async Task<int> SeedImageAsync(
         int locationId,
         string imageUrl = "/images/test.png",
         int displayOrder = 0,
-        string? caption = "A caption") => new() {
-            LocationId = locationId,
-            ImageUrl = imageUrl,
-            DisplayOrder = displayOrder,
-            Caption = caption
-        };
+        string? caption = "A caption") {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await connection.ExecuteScalarAsync<int>(
+            @"INSERT INTO location_images (location_id, image_url, display_order, caption)
+              VALUES (@LocationId, @ImageUrl, @DisplayOrder, @Caption)
+              RETURNING image_id",
+            new { LocationId = locationId, ImageUrl = imageUrl, DisplayOrder = displayOrder, Caption = caption });
+    }
 
     [Fact]
     public async Task GetAllByLocationAsyncReturnsEmptyWhenNoImagesExist() {
@@ -65,11 +66,10 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     public async Task GetAllByLocationAsyncReturnsOnlyImagesForGivenLocation() {
         var palletId = await SeedLocationAsync("Pallet Town");
         var pewterId = await SeedLocationAsync("Pewter City");
+        await SeedImageAsync(palletId, "/images/pallet-1.png", 1);
+        await SeedImageAsync(palletId, "/images/pallet-2.png", 2);
+        await SeedImageAsync(pewterId, "/images/pewter-1.png", 1);
         var repository = CreateNewRepository();
-
-        await repository.CreateAsync(NewImage(palletId, "/images/pallet-1.png", 1));
-        await repository.CreateAsync(NewImage(palletId, "/images/pallet-2.png", 2));
-        await repository.CreateAsync(NewImage(pewterId, "/images/pewter-1.png", 1));
 
         var palletImages = (await repository.GetAllByLocationAsync(palletId)).ToList();
 
@@ -80,11 +80,10 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetAllByLocationAsyncOrdersImagesByDisplayOrder() {
         var locationId = await SeedLocationAsync();
+        await SeedImageAsync(locationId, "/images/c.png", 3);
+        await SeedImageAsync(locationId, "/images/a.png", 1);
+        await SeedImageAsync(locationId, "/images/b.png", 2);
         var repository = CreateNewRepository();
-
-        await repository.CreateAsync(NewImage(locationId, "/images/c.png", 3));
-        await repository.CreateAsync(NewImage(locationId, "/images/a.png", 1));
-        await repository.CreateAsync(NewImage(locationId, "/images/b.png", 2));
 
         var images = (await repository.GetAllByLocationAsync(locationId)).ToList();
 
@@ -106,10 +105,8 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     [Fact]
     public async Task GetByIdAsyncReturnsImageWhenItExists() {
         var locationId = await SeedLocationAsync();
+        var newId = await SeedImageAsync(locationId, "/images/overview.png", 1, "Overview");
         var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(
-            NewImage(locationId, "/images/overview.png", 1, "Overview"));
 
         var loaded = await repository.GetByIdAsync(newId);
 
@@ -122,91 +119,14 @@ public class DapperLocationImageRepositoryTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task CreateAsyncInsertsImageAndReturnsId() {
+    public async Task NullCaptionRoundTrips() {
         var locationId = await SeedLocationAsync();
+        var newId = await SeedImageAsync(locationId, caption: null);
         var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewImage(locationId));
-
-        Assert.True(newId > 0);
-
-        await using var connection = await dataSource.OpenConnectionAsync();
-        var count = await connection.ExecuteScalarAsync<long>("SELECT COUNT(*) FROM location_images");
-
-        Assert.Equal(1, count);
-    }
-
-    [Fact]
-    public async Task CreateAsyncAllowsNullCaption() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewImage(locationId, caption: null));
 
         var loaded = await repository.GetByIdAsync(newId);
 
         Assert.NotNull(loaded);
         Assert.Null(loaded!.Caption);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncMutatesExistingImageAndReturnsTrue() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewImage(locationId, "/images/old.png", 1, "Old"));
-
-        var update = new LocationImage {
-            ImageId = newId,
-            LocationId = locationId,
-            ImageUrl = "/images/new.png",
-            DisplayOrder = 5,
-            Caption = "New"
-        };
-
-        var result = await repository.UpdateAsync(update);
-
-        Assert.True(result);
-
-        var loaded = await repository.GetByIdAsync(newId);
-        Assert.Equal("/images/new.png", loaded!.ImageUrl);
-        Assert.Equal(5, loaded.DisplayOrder);
-        Assert.Equal("New", loaded.Caption);
-    }
-
-    [Fact]
-    public async Task UpdateAsyncReturnsFalseWhenImageDoesNotExist() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var result = await repository.UpdateAsync(new LocationImage {
-            ImageId = 999_999,
-            LocationId = locationId,
-            ImageUrl = "/images/ghost.png"
-        });
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    public async Task DeleteAsyncRemovesImageAndReturnsTrue() {
-        var locationId = await SeedLocationAsync();
-        var repository = CreateNewRepository();
-
-        var newId = await repository.CreateAsync(NewImage(locationId));
-
-        var result = await repository.DeleteAsync(newId);
-
-        Assert.True(result);
-        Assert.Null(await repository.GetByIdAsync(newId));
-    }
-
-    [Fact]
-    public async Task DeleteAsyncReturnsFalseWhenImageDoesNotExist() {
-        var repository = CreateNewRepository();
-
-        var result = await repository.DeleteAsync(999_999);
-
-        Assert.False(result);
     }
 }

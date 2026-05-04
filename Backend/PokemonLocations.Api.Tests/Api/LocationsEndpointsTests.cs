@@ -33,6 +33,14 @@ public class LocationsEndpointsTests : IAsyncLifetime {
         return Task.CompletedTask;
     }
 
+    private async Task<int> SeedLocationAsync(string name, string? description = null) {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        return await conn.ExecuteScalarAsync<int>(
+            "INSERT INTO locations (name, description) VALUES (@Name, @Description) RETURNING location_id",
+            new { Name = name, Description = description });
+    }
+
     [Fact]
     public async Task GetLocationsOnEmptyDbReturnsOkAndEmptyArray() {
         var response = await client.GetAsync("/locations");
@@ -44,14 +52,12 @@ public class LocationsEndpointsTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task PostThenGetReturnsCreatedLocation() {
-        var post = await client.PostAsJsonAsync("/locations", new Location {
-            Name = "Pewter City",
-            Description = "Rock-types"
-        });
-        Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+    public async Task GetLocationsReturnsSeededRows() {
+        await SeedLocationAsync("Pewter City", "Rock-types");
 
         var get = await client.GetAsync("/locations");
+        get.EnsureSuccessStatusCode();
+
         var locations = await get.Content.ReadFromJsonAsync<List<Location>>();
         Assert.NotNull(locations);
         Assert.Single(locations!);
@@ -59,21 +65,11 @@ public class LocationsEndpointsTests : IAsyncLifetime {
     }
 
     [Fact]
-    public async Task PostWithoutNameReturnsBadRequest() {
-        var post = await client.PostAsJsonAsync("/locations", new Location {
-            Name = string.Empty,
-            Description = "Missing name"
-        });
-        Assert.Equal(HttpStatusCode.BadRequest, post.StatusCode);
-    }
+    public async Task GetByIdReturnsSeededLocation() {
+        var newId = await SeedLocationAsync("Cerulean City");
 
-    [Fact]
-    public async Task GetByIdReturnsLocationAfterCreate() {
-        var post = await client.PostAsJsonAsync("/locations", new Location { Name = "Cerulean City" });
-        var created = await post.Content.ReadFromJsonAsync<Location>();
-        Assert.NotNull(created);
+        var get = await client.GetAsync($"/locations/{newId}");
 
-        var get = await client.GetAsync($"/locations/{created!.LocationId}");
         get.EnsureSuccessStatusCode();
         var loaded = await get.Content.ReadFromJsonAsync<Location>();
         Assert.NotNull(loaded);
@@ -86,35 +82,17 @@ public class LocationsEndpointsTests : IAsyncLifetime {
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
     }
 
-    [Fact]
-    public async Task PutUpdatesExistingLocation() {
-        var post = await client.PostAsJsonAsync("/locations", new Location { Name = "Old" });
-        var created = await post.Content.ReadFromJsonAsync<Location>();
-        Assert.NotNull(created);
+    [Theory]
+    [InlineData("POST", "/locations")]
+    [InlineData("PUT", "/locations/1")]
+    [InlineData("DELETE", "/locations/1")]
+    public async Task WriteVerbsReturnMethodNotAllowed(string method, string path) {
+        var request = new HttpRequestMessage(new HttpMethod(method), path) {
+            Content = JsonContent.Create(new Location { Name = "x" })
+        };
 
-        var put = await client.PutAsJsonAsync($"/locations/{created!.LocationId}", new Location {
-            LocationId = created.LocationId,
-            Name = "New",
-            Description = "Updated"
-        });
-        Assert.Equal(HttpStatusCode.OK, put.StatusCode);
+        var response = await client.SendAsync(request);
 
-        var get = await client.GetAsync($"/locations/{created.LocationId}");
-        var loaded = await get.Content.ReadFromJsonAsync<Location>();
-        Assert.Equal("New", loaded!.Name);
-        Assert.Equal("Updated", loaded.Description);
-    }
-
-    [Fact]
-    public async Task DeleteRemovesLocation() {
-        var post = await client.PostAsJsonAsync("/locations", new Location { Name = "Doomed" });
-        var created = await post.Content.ReadFromJsonAsync<Location>();
-        Assert.NotNull(created);
-
-        var del = await client.DeleteAsync($"/locations/{created!.LocationId}");
-        Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-
-        var get = await client.GetAsync($"/locations/{created.LocationId}");
-        Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, response.StatusCode);
     }
 }

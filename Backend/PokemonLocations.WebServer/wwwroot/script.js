@@ -338,6 +338,8 @@ function applyTheme(name) {
     sessionStorage.setItem(THEME_CACHE_KEY, name);
 }
 
+const formatThemeName = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+
 // Apply cached theme synchronously to avoid a flash
 applyTheme(sessionStorage.getItem(THEME_CACHE_KEY) || 'bulbasaur');
 
@@ -354,7 +356,7 @@ async function loadUserInfo() {
 
         container.innerHTML = `
             <p>Logged in as: <strong>${escapeHtml(user.displayName)}</strong></p>
-            <p>Theme: <strong>${escapeHtml(user.theme)}</strong></p>
+            <p>Theme: <strong>${escapeHtml(formatThemeName(user.theme))}</strong></p>
         `;
     } catch (e) {
         container.innerHTML = '<p class="loading-text">Not signed in</p>';
@@ -426,7 +428,7 @@ function setupActions() {
                     return;
                 }
                 const themeLabel = document.querySelector('#user-info p:nth-child(2) strong');
-                if (themeLabel) themeLabel.textContent = theme;
+                if (themeLabel) themeLabel.textContent = formatThemeName(theme);
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);

@@ -90,8 +90,8 @@ public class LocationsControllerTests {
         var factory = CreateFactory(apiClient);
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
-        // Mark location 1 as visited
-        await client.PutAsync("/api/me/visited/locations/1", content: null);
+        // Mark a building in location 1 as visited; that should mark location 1 as visited too.
+        await client.PutAsync("/api/me/visited/buildings/1/100", content: null);
 
         var response = await client.GetAsync("/api/locations");
         var body = await ReadJsonAsync(response);
@@ -125,8 +125,8 @@ public class LocationsControllerTests {
         var factory = CreateFactory(apiClient);
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
-        // Mark as visited
-        await client.PutAsync("/api/me/visited/locations/1", content: null);
+        // Mark a building in location 1 as visited; that should mark location 1 as visited too.
+        await client.PutAsync("/api/me/visited/buildings/1/100", content: null);
 
         var response = await client.GetAsync("/api/locations/1");
         var body = await ReadJsonAsync(response);

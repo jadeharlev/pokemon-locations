@@ -26,7 +26,6 @@ var dataSource = NpgsqlDataSource.Create(postgresConnectionString);
 builder.Services.AddSingleton(dataSource);
 builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IBadgeRepository, BadgeRepository>();
-builder.Services.AddSingleton<IVisitedLocationRepository, VisitedLocationRepository>();
 builder.Services.AddSingleton<IVisitedBuildingRepository, VisitedBuildingRepository>();
 builder.Services.AddSingleton<IUserNoteRepository, UserNoteRepository>();
 builder.Services.AddSingleton<PasswordHasher>();

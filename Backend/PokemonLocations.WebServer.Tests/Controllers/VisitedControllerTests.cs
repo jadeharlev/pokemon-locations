@@ -28,26 +28,6 @@ public class VisitedControllerTests {
     }
 
     [Fact]
-    public async Task PutLocationReturns401WithoutBasicHeader() {
-        var factory = CreateFactory(ApiClientThatAcceptsEverything());
-        var client = factory.CreateClient();
-
-        var response = await client.PutAsync("/api/me/visited/locations/1", content: null);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task DeleteLocationReturns401WithoutBasicHeader() {
-        var factory = CreateFactory(ApiClientThatAcceptsEverything());
-        var client = factory.CreateClient();
-
-        var response = await client.DeleteAsync("/api/me/visited/locations/1");
-
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
     public async Task PutBuildingReturns401WithoutBasicHeader() {
         var factory = CreateFactory(ApiClientThatAcceptsEverything());
         var client = factory.CreateClient();
@@ -65,78 +45,6 @@ public class VisitedControllerTests {
         var response = await client.DeleteAsync("/api/me/visited/buildings/1/2");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    }
-
-    [Fact]
-    public async Task PutLocationReturns204ForKnownLocation() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
-        apiClient.ExistsAsync("/locations/42").Returns(true);
-        var factory = CreateFactory(apiClient);
-        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
-
-        var response = await client.PutAsync("/api/me/visited/locations/42", content: null);
-
-        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        await apiClient.Received(1).ExistsAsync("/locations/42");
-    }
-
-    [Fact]
-    public async Task PutLocationReturns404ForUnknownLocation() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
-        apiClient.ExistsAsync("/locations/999").Returns(false);
-        var factory = CreateFactory(apiClient);
-        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
-
-        var response = await client.PutAsync("/api/me/visited/locations/999", content: null);
-
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-        var body = await ReadJsonAsync(response);
-        Assert.Equal("not_found", body.GetProperty("error").GetString());
-    }
-
-    [Fact]
-    public async Task PutLocationIsIdempotent() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var factory = CreateFactory(ApiClientThatAcceptsEverything());
-        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
-
-        await client.PutAsync("/api/me/visited/locations/1", content: null);
-        var second = await client.PutAsync("/api/me/visited/locations/1", content: null);
-
-        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
-    }
-
-    [Fact]
-    public async Task DeleteLocationReturns204AndIsIdempotent() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var factory = CreateFactory(ApiClientThatAcceptsEverything());
-        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
-        await client.PutAsync("/api/me/visited/locations/1", content: null);
-
-        var first = await client.DeleteAsync("/api/me/visited/locations/1");
-        var second = await client.DeleteAsync("/api/me/visited/locations/1");
-
-        Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
-    }
-
-    [Fact]
-    public async Task DeleteLocationDoesNotCallApi() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
-        var factory = CreateFactory(apiClient);
-        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
-
-        await client.DeleteAsync("/api/me/visited/locations/1");
-
-        await apiClient.DidNotReceive().ExistsAsync(Arg.Any<string>());
     }
 
     [Fact]
@@ -194,6 +102,19 @@ public class VisitedControllerTests {
 
         Assert.Equal(HttpStatusCode.NoContent, first.StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, second.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteBuildingDoesNotCallApi() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
+        var factory = CreateFactory(apiClient);
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        await client.DeleteAsync("/api/me/visited/buildings/1/2");
+
+        await apiClient.DidNotReceive().ExistsAsync(Arg.Any<string>());
     }
 
     private static HttpClient AuthorizedClient(

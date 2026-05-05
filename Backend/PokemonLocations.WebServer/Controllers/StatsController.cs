@@ -8,15 +8,12 @@ namespace PokemonLocations.WebServer.Controllers;
 [Route("/api/me/stats")]
 public class StatsController : ControllerBase {
     private readonly IBadgeRepository badgeRepository;
-    private readonly IVisitedLocationRepository visitedLocationRepository;
     private readonly IVisitedBuildingRepository visitedBuildingRepository;
 
     public StatsController(
         IBadgeRepository badgeRepository,
-        IVisitedLocationRepository visitedLocationRepository,
         IVisitedBuildingRepository visitedBuildingRepository) {
         this.badgeRepository = badgeRepository;
-        this.visitedLocationRepository = visitedLocationRepository;
         this.visitedBuildingRepository = visitedBuildingRepository;
     }
 
@@ -24,14 +21,14 @@ public class StatsController : ControllerBase {
     public async Task<IActionResult> Get() {
         var userId = User.GetUserId();
         var badgesTask = badgeRepository.GetForUserAsync(userId);
-        var locationsTask = visitedLocationRepository.GetForUserAsync(userId);
-        var buildingsTask = visitedBuildingRepository.GetForUserAsync(userId);
-        await Task.WhenAll(badgesTask, locationsTask, buildingsTask);
+        var visitedLocationsTask = visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(userId);
+        var visitedBuildingsTask = visitedBuildingRepository.GetForUserAsync(userId);
+        await Task.WhenAll(badgesTask, visitedLocationsTask, visitedBuildingsTask);
 
         return Ok(new {
             gymsComplete = badgesTask.Result.Count,
-            locationsVisited = locationsTask.Result.Count,
-            buildingsVisited = buildingsTask.Result.Count
+            locationsVisited = visitedLocationsTask.Result.Count,
+            buildingsVisited = visitedBuildingsTask.Result.Count
         });
     }
 }

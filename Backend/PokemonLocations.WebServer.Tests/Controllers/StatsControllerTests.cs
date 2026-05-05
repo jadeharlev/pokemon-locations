@@ -74,9 +74,8 @@ public class StatsControllerTests {
         // Earn 2 badges
         await client.PutAsync("/api/me/badges/boulder", content: null);
         await client.PutAsync("/api/me/badges/cascade", content: null);
-        // Visit 1 location
-        await client.PutAsync("/api/me/visited/locations/1", content: null);
-        // Visit 3 buildings
+        // Visit 3 buildings across 2 locations: location 1 has buildings 10 & 11, location 2 has building 20.
+        // locationsVisited is derived from distinct location_ids in user_visited_buildings.
         await client.PutAsync("/api/me/visited/buildings/1/10", content: null);
         await client.PutAsync("/api/me/visited/buildings/1/11", content: null);
         await client.PutAsync("/api/me/visited/buildings/2/20", content: null);
@@ -86,7 +85,7 @@ public class StatsControllerTests {
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await ReadJsonAsync(response);
         Assert.Equal(2, body.GetProperty("gymsComplete").GetInt32());
-        Assert.Equal(1, body.GetProperty("locationsVisited").GetInt32());
+        Assert.Equal(2, body.GetProperty("locationsVisited").GetInt32());
         Assert.Equal(3, body.GetProperty("buildingsVisited").GetInt32());
     }
 }

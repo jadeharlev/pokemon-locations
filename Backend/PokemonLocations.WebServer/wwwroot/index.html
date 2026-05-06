@@ -27,6 +27,7 @@
 
     /* ── Top bar ── */
     .top-bar {
+      position: relative;
       background: var(--theme-primary-dark);
       color: #FFF;
       text-align: center;
@@ -38,6 +39,39 @@
       display: flex;
       align-items: center;
       justify-content: center;
+    }
+
+    #weather-ticker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      right: 16px;
+      width: 220px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      font-size: 14px;
+      font-weight: 500;
+      letter-spacing: 0;
+      color: #FFF;
+      pointer-events: none;
+    }
+
+    .ticker-item {
+      position: absolute;
+      right: 0;
+      white-space: nowrap;
+      opacity: 0;
+      transform: translateY(100%);
+      animation: ticker-cycle 4s ease-in-out forwards;
+    }
+
+    @keyframes ticker-cycle {
+      0%   { opacity: 0; transform: translateY(100%); }
+      15%  { opacity: 1; transform: translateY(0); }
+      85%  { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-100%); }
     }
 
     /* ── Layout ── */
@@ -397,7 +431,10 @@
 </head>
 <body>
 
-  <div class="top-bar" id="top-bar">PokéLocs</div>
+  <div class="top-bar" id="top-bar">
+    <span class="top-bar-brand">PokéLocs</span>
+    <div id="weather-ticker" aria-live="polite"></div>
+  </div>
 
   <div class="app-container">
 

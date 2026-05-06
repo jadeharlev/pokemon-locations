@@ -483,6 +483,45 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
+// ─── Weather ticker ───
+const TICKER_FRAME_MS = 4000;
+
+function randomInt(min, max) {
+    const lo = Math.ceil(min);
+    const hi = Math.floor(max);
+    return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+}
+
+async function startWeatherTicker() {
+    const host = document.getElementById('weather-ticker');
+    if (!host) return;
+
+    let planets;
+    try {
+        const res = await apiFetch('/planets');
+        if (!res.ok) return;
+        planets = await res.json();
+    } catch {
+        return;
+    }
+    if (!Array.isArray(planets) || planets.length === 0) return;
+
+    let index = 0;
+    const showNext = () => {
+        if (document.hidden) return;
+        const planet = planets[index % planets.length];
+        index += 1;
+
+        const item = document.createElement('div');
+        item.className = 'ticker-item';
+        item.textContent = `${planet.name}: ${randomInt(planet.minTemp, planet.maxTemp)}° C`;
+        host.replaceChildren(item);
+    };
+
+    showNext();
+    setInterval(showNext, TICKER_FRAME_MS);
+}
+
 // ─── Bootstrap ───
 document.addEventListener('DOMContentLoaded', async () => {
     PLAuth.requireAuth();
@@ -492,6 +531,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupNotesAutoSave();
     setupActions();
+
+    startWeatherTicker();
 
     // Load all data in parallel where possible
     await Promise.all([

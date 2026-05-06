@@ -81,34 +81,47 @@
 
 
 
-    /* ── Location name with inline dropdown ── */
-    .location-name-wrapper {
-      display: flex;
-      align-items: baseline;
-      gap: 4px;
-      margin-bottom: 4px;
-    }
+    /* ─Location name with inline dropdown ── */
 
-    .location-name-select {
-      appearance: none;
-      -webkit-appearance: none;
-      border: none;
-      background: transparent;
-      font-family: 'Inter', Arial, sans-serif;
-      font-size: 33px;
-      font-weight: 700;
-      color: var(--theme-text);
-      cursor: pointer;
-      padding: 0;
-      padding-right: 24px;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23333' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 2px center;
-    }
+	.location-dropdown-toggle {
+  	  border: 2px solid var(--theme-primary);
+	  border-radius: 13px;
+	  background-color: #fff;
+	  color: var(--theme-primary-dark);
+	  font-size: 30px;
+	  font-weight: 700;
+	  padding: 8px 16px;
+	  min-width: 260px;
+	  text-align: left;
+	  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+	}
 
-    .location-name-select:focus {
-      outline: none;
-    }
+	.location-dropdown-toggle:hover,
+	.location-dropdown-toggle:focus {
+	  border-color: var(--theme-primary-dark);
+	  background-color: var(--theme-primary-pale);
+	  color: var(--theme-primary-dark);
+	}
+
+	.location-dropdown-menu {
+	  max-height: 320px;
+	  overflow-y: auto;
+	  border: 2px solid var(--theme-primary);
+	  border-radius: 13px;
+	  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+	}
+
+	.location-dropdown-menu .dropdown-item {
+	  font-size: 18px;
+	  padding: 10px 16px;
+	}
+
+	.location-dropdown-menu .dropdown-item:hover,
+	.location-dropdown-menu .dropdown-item:focus {
+	  background-color: var(--theme-primary-pale);
+	  color: var(--theme-primary-dark);
+	}
+
 
     /* ── Badge Progress (Column 1) ── */
     .panel-header {
@@ -410,12 +423,23 @@
     <!-- Column 2: Selected Location Detail & Buildings List -->
     <div class="panel" id="location-panel">
       <div class="location-info-col">
-        <div class="location-name-wrapper">
-          <select class="location-name-select" id="location-select">
-            <option>Loading...</option>
-          </select>
+        <div class="location-name-wrapper dropdown">
+            <button
+              class="btn location-dropdown-toggle dropdown-toggle"
+              type="button"
+              id="location-dropdown-button"
+              data-bs-toggle="dropdown"
+              aria-expanded="false">
+              Loading...
+            </button>
+
+            <ul
+              class="dropdown-menu location-dropdown-menu"
+              id="location-dropdown-menu"
+              aria-labelledby="location-dropdown-button">
+            </ul>
         </div>
-        <div class="location-status" id="location-status"></div>
+   	<div class="location-status" id="location-status"></div>
         <div class="location-description" id="location-description"></div>
         <div class="image-gallery" id="image-gallery">Image Gallery</div>
 
@@ -463,10 +487,22 @@
         </div>
         <div class="modal-body">
           <div class="d-grid gap-2">
+
+            <button class="btn btn-outline-secondary theme-option" data-theme="random">Random</button>
+            
             <button class="btn btn-outline-secondary theme-option" data-theme="bulbasaur">Bulbasaur (Green)</button>
             <button class="btn btn-outline-secondary theme-option" data-theme="charmander">Charmander (Red)</button>
             <button class="btn btn-outline-secondary theme-option" data-theme="squirtle">Squirtle (Blue)</button>
             <button class="btn btn-outline-secondary theme-option" data-theme="pikachu">Pikachu (Yellow)</button>
+
+
+            <button class="btn btn-outline-secondary theme-option" data-theme="rattata">Rattata (Purple)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="diglett">Diglett (Brown)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="geodude">Geodude (Gray)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="dratini">Dratini (Light Blue)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="mew">Mew (Pink)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="dragonite">Dragonite (Orange)</button>
+
           </div>
         </div>
       </div>

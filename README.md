@@ -48,8 +48,8 @@ To pull a newer version of the upstream API later: `git submodule update --remot
 
 Use `scripts/dev-up.sh` to bring up the dev stack. It wraps the right Compose files and profiles for each mode so you don't have to remember the flags. On first run it will prompt you to choose `docker` or `podman` and save the choice to `scripts/.runtime` (gitignored). To override later, set `RUNTIME=docker|podman` (one-off or `export`-ed) or edit/delete `scripts/.runtime`.
 
-* **Full stack (default):** our `api` + `db` + `cache` + `webserver` plus the SE498-Capstone `api` + `api-db`, all on a shared Docker network so the web server can reach the StarTrekWeather API as `http://api:8080`.
-* **Backend only (`--backend-only` / `-b`):** just our `api` + `db`. The capstone stack and the web server/cache stay down.
+* **Full stack (default):** our `pokemon-locations-api` + `db` + `cache` + `webserver` plus the SE498-Capstone `api` + `api-db`, all on a shared Docker network. The web server reaches our API at `http://pokemon-locations-api:8080` and the StarTrekWeather API at `http://api:8080`.
+* **Backend only (`--backend-only` / `-b`):** just our `pokemon-locations-api` + `db`. The capstone stack and the web server/cache stay down.
 
 The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
 
@@ -59,7 +59,7 @@ The `db` container hosts both the API database (`pokemonlocations`) and the web 
 ./scripts/dev-up.sh
 ```
 
-> The frontend runs at [http://localhost:3001/](http://localhost:3001/). The web server serves static files from `wwwroot/` and proxies API requests with per-user state merging. The StarTrekWeather API is reachable from the host at [http://localhost:5002](http://localhost:5002) and from inside containers at `http://api:8080`.
+> The frontend runs at [http://localhost:3001/](http://localhost:3001/). The web server serves static files from `wwwroot/` and proxies API requests with per-user state merging. The StarTrekWeather API is reachable from the host at [http://localhost:5002](http://localhost:5002) and from inside containers at `http://api:8080` (its service name in the capstone compose file).
 
 ### Backend only
 

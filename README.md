@@ -16,6 +16,22 @@ See `docs/` for further information regarding what the project is, tech stack, e
 
 Make sure you already have Docker (and Docker Compose) or Podman, along with the .NET SDK installed.
 
+### Submodules
+
+This repo clones the [SE498-Capstone](https://github.com/jsanderswp/SE498-Capstone) StarTrekWeather API as a git submodule at `external/SE498-Capstone` so the full-stack dev environment can talk to it. Either clone with submodules:
+
+```bash
+git clone --recurse-submodules <this-repo-url>
+```
+
+…or, if you already cloned without `--recurse-submodules`, initialize them:
+
+```bash
+git submodule update --init --recursive
+```
+
+To pull a newer version of the upstream API later: `git submodule update --remote external/SE498-Capstone` and commit the bump.
+
 ### HTTPS Setup (macOS)
 
 `dotnet dev-certs https -ep ${HOME}/.aspnet/https/aspnetapp.pfx -p password`
@@ -30,30 +46,40 @@ Make sure you already have Docker (and Docker Compose) or Podman, along with the
 
 ## Run Instructions
 
-The Compose file is split into two stacks via Compose profiles:
+Use `scripts/dev-up.sh` to bring up the dev stack. It wraps the right Compose files and profiles for each mode so you don't have to remember the flags. On first run it will prompt you to choose `docker` or `podman` and save the choice to `scripts/.runtime` (gitignored). To override later, set `RUNTIME=docker|podman` (one-off or `export`-ed) or edit/delete `scripts/.runtime`.
 
-* **API stack (default)**: `api`, `db`. The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
-* **Frontend stack**: adds `webserver` (ASP.NET web server + static frontend) and `cache` (Redis). Activated with `--profile frontend`.
+* **Full stack (default):** our `api` + `db` + `cache` + `webserver` plus the SE498-Capstone `api` + `api-db`, all on a shared Docker network so the web server can reach the StarTrekWeather API as `http://api:8080`.
+* **Backend only (`--backend-only` / `-b`):** just our `api` + `db`. The capstone stack and the web server/cache stay down.
 
-### API stack only
+The `db` container hosts both the API database (`pokemonlocations`) and the web server database (`pokemonlocations_webserver`).
 
-```bash
-docker/podman compose -f docker-compose.debug.yml up -d
-```
-
-> The API will run at [https://localhost:8081](localhost:8081), with Swagger at [https://localhost:8081/swagger](localhost:8081/swagger).
-
-### Full stack (API + web server + frontend)
+### Full stack (API + web server + frontend + other API)
 
 ```bash
-docker/podman compose -f docker-compose.debug.yml --profile frontend up -d
+./scripts/dev-up.sh
 ```
 
-> The frontend will run at [http://localhost:3001/](localhost:3001). The web server serves static files from `wwwroot/` and proxies API requests with per-user state merging.
+> The frontend runs at [http://localhost:3001/](http://localhost:3001/). The web server serves static files from `wwwroot/` and proxies API requests with per-user state merging. The StarTrekWeather API is reachable from the host at [http://localhost:5002](http://localhost:5002) and from inside containers at `http://api:8080`.
 
-Stop everything with `docker/podman compose -f docker-compose.debug.yml --profile frontend down` (the `--profile` flag is needed to also stop frontend services).
+### Backend only
 
-> ⚠️ **Warning:** Compose only acts on services whose profile is currently active. If you ran `up` with `--profile frontend`, you **must** pass `--profile frontend` to `down` as well — otherwise the web server and cache containers will be left running, and Compose will fail to remove the project network because they are still attached to it. Symptom: `Network pokemonlocations_default  Resource is still in use`.
+```bash
+./scripts/dev-up.sh --backend-only
+```
+
+> The API runs at [https://localhost:8081](https://localhost:8081), with Swagger at [https://localhost:8081/swagger](https://localhost:8081/swagger).
+
+### Other commands
+
+Any extra args are forwarded to `docker compose`, with the same file/profile selection applied. Examples:
+
+```bash
+./scripts/dev-up.sh down                  # tear down the full stack
+./scripts/dev-up.sh logs -f webserver     # tail webserver logs
+./scripts/dev-up.sh -b down               # tear down backend-only mode
+```
+
+> ⚠️ **Warning:** Compose only acts on services whose profile is currently active, so always tear down with the same mode you brought up with. If you ran `./scripts/dev-up.sh` (full stack), use `./scripts/dev-up.sh down`, **not** `./scripts/dev-up.sh -b down` — otherwise the web server and cache containers will be left running and Compose will fail to remove the project network. Symptom: `Network pokemonlocations_default  Resource is still in use`.
 
 ### Getting an API token
 
@@ -75,7 +101,7 @@ Jwt__Key="<production-key>" \
 To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgres container it depends on:
 
 ```bash
-docker/podman compose -f docker-compose.debug.yml up -d db
+./scripts/dev-up.sh -b up -d db
 ```
 
 The API runs its database migrations automatically on startup (via DbUp), so no manual migration step is required. The API test suite brings up its own Postgres via Testcontainers and does not need the compose `db` service.

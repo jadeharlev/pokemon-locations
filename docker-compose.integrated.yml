@@ -1,0 +1,14 @@
+services:
+  webserver:
+    networks:
+      - default
+      - app-network
+    environment:
+      - StarTrekWeatherApi__BaseUrl=http://api:8080
+
+  web-db:
+    ports: []
+    profiles: ["capstone-web"]
+
+  web:
+    profiles: ["capstone-web"]

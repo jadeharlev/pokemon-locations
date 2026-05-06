@@ -85,63 +85,75 @@ async function loadBadges() {
 }
 
 // ─── Locations dropdown ───
-function fitSelectWidth(select) {
-    const opt = select.options[select.selectedIndex];
-    if (!opt) return;
-    const probe = document.createElement('span');
-    probe.textContent = opt.textContent;
-    const cs = getComputedStyle(select);
-    Object.assign(probe.style, {
-        position: 'absolute',
-        visibility: 'hidden',
-        whiteSpace: 'pre',
-        font: cs.font,
-        letterSpacing: cs.letterSpacing,
-    });
-    document.body.appendChild(probe);
-    const textWidth = probe.getBoundingClientRect().width;
-    probe.remove();
-    const paddingRight = parseFloat(cs.paddingRight) || 0;
-    select.style.width = `${Math.ceil(textWidth + paddingRight + 2)}px`;
-}
 
 async function loadLocations() {
-    const select = document.getElementById('location-select');
+    const locationDropdownButton = document.getElementById('location-dropdown-button');
+    const locationDropdownMenu = document.getElementById('location-dropdown-menu');
+
     try {
         const res = await apiFetch('/locations');
-        if (!res.ok) throw new Error(`Status: ${res.status}`);
+        if (!res.ok) throw new Error(`Status ${res.status}`);
         allLocations = await res.json();
 
-        select.replaceChildren();
+        locationDropdownMenu.replaceChildren();
+
         allLocations.forEach(loc => {
-            const opt = document.createElement('option');
-            opt.value = loc.locationId;
-            opt.textContent = loc.name;
-            select.appendChild(opt);
+            const li = document.createElement('li');
+
+            const button = document.createElement('button');
+            button.className = 'dropdown-item';
+            button.type = 'button';
+            button.textContent = loc.name;
+            button.dataset.locationId = loc.locationId;
+
+            button.addEventListener('click', async () => {
+                await selectLocation(loc.locationId);
+            });
+
+            li.appendChild(button);
+            locationDropdownMenu.appendChild(li);
         });
 
         if (allLocations.length > 0) {
             const savedLocationId = localStorage.getItem('selectedLocationId');
+
+            let selectedLocationId;
             if (savedLocationId && allLocations.some(l => l.locationId == savedLocationId)) {
                 selectedLocationId = parseInt(savedLocationId, 10);
             } else {
                 selectedLocationId = allLocations[0].locationId;
             }
-            select.value = selectedLocationId;
-            fitSelectWidth(select);
+
             await selectLocation(selectedLocationId);
         }
     } catch (e) {
-        select.replaceChildren();
-        const opt = document.createElement('option');
-        opt.textContent = 'Unable to load locations';
-        select.appendChild(opt);
+        if (locationDropdownButton) {
+            locationDropdownButton.textContent = 'Unable to load locations';
+        }
+
+        if (locationDropdownMenu) {
+            locationDropdownMenu.replaceChildren();
+        }
+
         console.error('Failed to load locations:', e.message);
     }
 }
 
 async function selectLocation(locationId) {
     selectedLocationId = locationId;
+    localStorage.setItem('selectedLocationId', locationId);
+
+    const locationDropdownButton = document.getElementById('location-dropdown-button');
+    const selectedLocation = allLocations.find(l => l.locationId == locationId);
+
+    if (locationDropdownButton && selectedLocation) {
+        locationDropdownButton.textContent = selectedLocation.name;
+    }
+
+    document.querySelectorAll('#location-dropdown-menu .dropdown-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.locationId == locationId);
+    });
+
     await Promise.all([
         loadLocationDetail(locationId),
         loadBuildings(locationId),
@@ -327,7 +339,18 @@ function setupNotesAutoSave() {
 }
 
 // ─── Themes ───
-const THEMES = ['bulbasaur', 'charmander', 'squirtle', 'pikachu'];
+const THEMES = [
+  'bulbasaur',
+  'charmander',
+  'squirtle',
+  'pikachu',
+  'rattata',
+  'diglett',
+  'geodude',
+  'dratini',
+  'mew',
+  'dragonite'
+];
 const THEME_CACHE_KEY = 'pl.theme';
 
 function applyTheme(name) {
@@ -336,6 +359,18 @@ function applyTheme(name) {
     const link = document.getElementById('theme-stylesheet');
     if (link) link.href = `/css/themes/${name}.css`;
     sessionStorage.setItem(THEME_CACHE_KEY, name);
+}
+
+function pickRandomTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
+    const choices = THEMES.filter(theme => theme !== currentTheme);
+
+    if (choices.length === 0) {
+        return currentTheme;
+    }
+
+    const randomIndex = Math.floor(Math.random() * choices.length);
+    return choices[randomIndex];
 }
 
 const formatThemeName = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
@@ -412,7 +447,9 @@ function setupActions() {
 
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', async () => {
-            const theme = btn.dataset.theme;
+            const selectedTheme = btn.dataset.theme;
+            const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
+
             const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
             applyTheme(theme);
 
@@ -452,14 +489,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!PLAuth.getCreds()) return;
 
     // Set up event listeners
-    document.getElementById('location-select').addEventListener('change', (e) => {
-        fitSelectWidth(e.target);
-        const id = parseInt(e.target.value, 10);
-        if (!isNaN(id)) {
-            localStorage.setItem('selectedLocationId', id);
-            selectLocation(id);
-        }
-    });
 
     setupNotesAutoSave();
     setupActions();

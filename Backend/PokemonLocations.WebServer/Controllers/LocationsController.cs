@@ -1,4 +1,3 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.AspNetCore.Mvc;
 using PokemonLocations.WebServer.Authentication;
@@ -12,13 +11,13 @@ namespace PokemonLocations.WebServer.Controllers;
 [Route("/api/locations")]
 public class LocationsController : ControllerBase {
     private readonly IPokemonLocationsApiClient apiClient;
-    private readonly IVisitedLocationRepository visitedRepository;
+    private readonly IVisitedBuildingRepository visitedBuildingRepository;
 
     public LocationsController(
         IPokemonLocationsApiClient apiClient,
-        IVisitedLocationRepository visitedRepository) {
+        IVisitedBuildingRepository visitedBuildingRepository) {
         this.apiClient = apiClient;
-        this.visitedRepository = visitedRepository;
+        this.visitedBuildingRepository = visitedBuildingRepository;
     }
 
     [HttpGet]
@@ -27,7 +26,7 @@ public class LocationsController : ControllerBase {
         if (response.StatusCode != 200) return this.ProxyError(response);
 
         var locations = JsonNode.Parse(response.Body!)!.AsArray();
-        var visitedIds = await visitedRepository.GetForUserAsync(User.GetUserId());
+        var visitedIds = await visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(User.GetUserId());
         var visitedSet = new HashSet<int>(visitedIds);
 
         foreach (var location in locations) {
@@ -44,7 +43,7 @@ public class LocationsController : ControllerBase {
         if (response.StatusCode != 200) return this.ProxyError(response);
 
         var location = JsonNode.Parse(response.Body!)!.AsObject();
-        var visitedIds = await visitedRepository.GetForUserAsync(User.GetUserId());
+        var visitedIds = await visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(User.GetUserId());
         location["visited"] = visitedIds.Contains(locationId);
         location["userImages"] = new JsonArray();
 

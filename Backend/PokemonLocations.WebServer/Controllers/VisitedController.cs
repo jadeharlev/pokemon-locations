@@ -7,47 +7,35 @@ namespace PokemonLocations.WebServer.Controllers;
 
 [ApiController]
 [Route("/api/me/visited")]
-public class VisitedController : ControllerBase {
-    private readonly IVisitedLocationRepository locationRepository;
+public class VisitedController : ControllerBase
+{
     private readonly IVisitedBuildingRepository buildingRepository;
     private readonly IPokemonLocationsApiClient apiClient;
 
     public VisitedController(
-        IVisitedLocationRepository locationRepository,
         IVisitedBuildingRepository buildingRepository,
-        IPokemonLocationsApiClient apiClient) {
-        this.locationRepository = locationRepository;
+        IPokemonLocationsApiClient apiClient)
+    {
         this.buildingRepository = buildingRepository;
         this.apiClient = apiClient;
     }
 
-    [HttpPut("locations/{locationId:int}")]
-    public async Task<IActionResult> PutLocation(int locationId) {
-        if (!await apiClient.ExistsAsync($"/locations/{locationId}")) {
-            return NotFound(new { error = "not_found" });
-        }
-        await locationRepository.AddAsync(User.GetUserId(), locationId);
-        return NoContent();
-    }
-
-    [HttpDelete("locations/{locationId:int}")]
-    public async Task<IActionResult> DeleteLocation(int locationId) {
-        await locationRepository.RemoveAsync(User.GetUserId(), locationId);
-        return NoContent();
-    }
-
     [HttpPut("buildings/{locationId:int}/{buildingId:int}")]
-    public async Task<IActionResult> PutBuilding(int locationId, int buildingId) {
-        if (!await apiClient.ExistsAsync($"/locations/{locationId}/buildings/{buildingId}")) {
+    public async Task<IActionResult> PutBuilding(int locationId, int buildingId)
+    {
+        if (!await apiClient.ExistsAsync($"/locations/{locationId}/buildings/{buildingId}"))
+        {
             return NotFound(new { error = "not_found" });
         }
-        await buildingRepository.AddAsync(User.GetUserId(),locationId, buildingId);
+
+        await buildingRepository.AddAsync(User.GetUserId(), locationId, buildingId);
         return NoContent();
     }
 
     [HttpDelete("buildings/{locationId:int}/{buildingId:int}")]
-    public async Task<IActionResult> DeleteBuilding(int locationId, int buildingId) {
-        await buildingRepository.RemoveAsync(User.GetUserId(),locationId, buildingId);
+    public async Task<IActionResult> DeleteBuilding(int locationId, int buildingId)
+    {
+        await buildingRepository.RemoveAsync(User.GetUserId(), locationId, buildingId);
         return NoContent();
     }
 }

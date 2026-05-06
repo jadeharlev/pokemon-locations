@@ -52,7 +52,7 @@ public class VisitedBuildingRepositoryTests {
         var userId = await SeedUserAsync();
         var repository = CreateRepository();
 
-        await repository.AddAsync(userId, 7);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 7);
         var visited = await repository.GetForUserAsync(userId);
 
         Assert.Contains(7, visited);
@@ -64,8 +64,8 @@ public class VisitedBuildingRepositoryTests {
         var userId = await SeedUserAsync();
         var repository = CreateRepository();
 
-        await repository.AddAsync(userId, 7);
-        await repository.AddAsync(userId, 7);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 7);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 7);
         var visited = await repository.GetForUserAsync(userId);
 
         Assert.Single(visited);
@@ -76,7 +76,7 @@ public class VisitedBuildingRepositoryTests {
         await ResetAsync();
         var userId = await SeedUserAsync();
         var repository = CreateRepository();
-        await repository.AddAsync(userId, 7);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 7);
 
         await repository.RemoveAsync(userId, 7);
 
@@ -101,8 +101,8 @@ public class VisitedBuildingRepositoryTests {
         var blueId = await SeedUserAsync("blue@example.com");
         var repository = CreateRepository();
 
-        await repository.AddAsync(redId, 1);
-        await repository.AddAsync(blueId, 2);
+        await repository.AddAsync(redId, locationId: 1, buildingId: 1);
+        await repository.AddAsync(blueId, locationId: 2, buildingId: 2);
 
         Assert.Equal([1], await repository.GetForUserAsync(redId));
         Assert.Equal([2], await repository.GetForUserAsync(blueId));
@@ -113,8 +113,8 @@ public class VisitedBuildingRepositoryTests {
         await ResetAsync();
         var userId = await SeedUserAsync();
         var repository = CreateRepository();
-        await repository.AddAsync(userId, 1);
-        await repository.AddAsync(userId, 2);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 1);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 2);
 
         await CreateUserRepository().DeleteAsync(userId);
 
@@ -124,5 +124,51 @@ public class VisitedBuildingRepositoryTests {
             "SELECT COUNT(*) FROM user_visited_buildings WHERE user_id = @UserId",
             new { UserId = userId });
         Assert.Equal(0, orphanCount);
+    }
+
+    [Fact]
+    public async Task GetDistinctLocationIdsCountsEachLocationOnce() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+
+        // Two buildings in location 1, one building in location 2
+        await repository.AddAsync(userId, locationId: 1, buildingId: 10);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 11);
+        await repository.AddAsync(userId, locationId: 2, buildingId: 20);
+
+        var locations = await repository.GetDistinctLocationIdsForUserAsync(userId);
+
+        Assert.Equal([1, 2], locations);
+    }
+
+    [Fact]
+    public async Task GetDistinctLocationIdsReturnsEmptyForNewUser() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+
+        var locations = await repository.GetDistinctLocationIdsForUserAsync(userId);
+
+        Assert.Empty(locations);
+    }
+
+    [Fact]
+    public async Task GetDistinctLocationIdsDropsLocationsWhereAllBuildingsRemoved() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+
+        await repository.AddAsync(userId, locationId: 1, buildingId: 10);
+        await repository.AddAsync(userId, locationId: 1, buildingId: 11);
+        await repository.AddAsync(userId, locationId: 2, buildingId: 20);
+
+        // Remove both buildings from location 1
+        await repository.RemoveAsync(userId, 10);
+        await repository.RemoveAsync(userId, 11);
+
+        var locations = await repository.GetDistinctLocationIdsForUserAsync(userId);
+
+        Assert.Equal([2], locations);
     }
 }

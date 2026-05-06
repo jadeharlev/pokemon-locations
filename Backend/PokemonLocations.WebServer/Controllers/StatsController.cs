@@ -6,45 +6,35 @@ namespace PokemonLocations.WebServer.Controllers;
 
 [ApiController]
 [Route("/api/me/stats")]
-public class StatsController : ControllerBase {
+public class StatsController : ControllerBase
+{
     private readonly IBadgeRepository badgeRepository;
-    private readonly IVisitedLocationRepository visitedLocationRepository;
     private readonly IVisitedBuildingRepository visitedBuildingRepository;
 
     public StatsController(
         IBadgeRepository badgeRepository,
-        IVisitedLocationRepository visitedLocationRepository,
-        IVisitedBuildingRepository visitedBuildingRepository) {
+        IVisitedBuildingRepository visitedBuildingRepository)
+    {
         this.badgeRepository = badgeRepository;
-        this.visitedLocationRepository = visitedLocationRepository;
         this.visitedBuildingRepository = visitedBuildingRepository;
     }
 
     [HttpGet]
-    public async Task<IActionResult> Get() {
+    public async Task<IActionResult> Get()
+    {
         var userId = User.GetUserId();
 
         var badgesTask = badgeRepository.GetForUserAsync(userId);
-        var locationsTask = visitedLocationRepository.GetForUserAsync(userId);
-        var buildingLocationsTask = visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(userId);
-        var buildingsTask = visitedBuildingRepository.GetForUserAsync(userId);
+        var visitedLocationsTask = visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(userId);
+        var visitedBuildingsTask = visitedBuildingRepository.GetForUserAsync(userId);
 
-        await Task.WhenAll(
-            badgesTask,
-            locationsTask,
-            buildingLocationsTask,
-            buildingsTask
-        );
+        await Task.WhenAll(badgesTask, visitedLocationsTask, visitedBuildingsTask);
 
-        var visitedLocationIds = locationsTask.Result
-            .Concat(buildingLocationsTask.Result)
-            .Distinct()
-            .ToList();
-
-        return Ok(new {
+        return Ok(new
+        {
             gymsComplete = badgesTask.Result.Count,
-            locationsVisited = visitedLocationIds.Count,
-            buildingsVisited = buildingsTask.Result.Count
+            locationsVisited = visitedLocationsTask.Result.Count,
+            buildingsVisited = visitedBuildingsTask.Result.Count
         });
     }
 }

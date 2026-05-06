@@ -41,13 +41,13 @@ public class VisitedController : ControllerBase {
         if (!await apiClient.ExistsAsync($"/locations/{locationId}/buildings/{buildingId}")) {
             return NotFound(new { error = "not_found" });
         }
-        await buildingRepository.AddAsync(User.GetUserId(), buildingId);
+        await buildingRepository.AddAsync(User.GetUserId(),locationId, buildingId);
         return NoContent();
     }
 
     [HttpDelete("buildings/{locationId:int}/{buildingId:int}")]
     public async Task<IActionResult> DeleteBuilding(int locationId, int buildingId) {
-        await buildingRepository.RemoveAsync(User.GetUserId(), buildingId);
+        await buildingRepository.RemoveAsync(User.GetUserId(),locationId, buildingId);
         return NoContent();
     }
 }

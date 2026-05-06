@@ -25,9 +25,8 @@ public class BuildingsController : ControllerBase {
         if (response.StatusCode != 200) return this.ProxyError(response);
 
         var buildings = JsonNode.Parse(response.Body!)!.AsArray();
-        var visitedIds = await visitedRepository.GetForUserAsync(User.GetUserId());
+        var visitedIds = await visitedRepository.GetForUserLocationAsync(User.GetUserId(), locationId);
         var visitedSet = new HashSet<int>(visitedIds);
-
         foreach (var building in buildings) {
             var id = building!["buildingId"]!.GetValue<int>();
             building["visited"] = visitedSet.Contains(id);

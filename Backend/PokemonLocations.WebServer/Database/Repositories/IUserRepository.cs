@@ -8,4 +8,5 @@ public interface IUserRepository {
     Task<User?> GetByIdAsync(int userId);
     Task DeleteAsync(int userId);
     Task UpdateThemeAsync(int userId, string theme);
+    Task UpdatePermanentPlanetAsync(int userId, string? planetName);
 }

@@ -113,6 +113,45 @@ public class UserRepositoryTests {
     }
 
     [Fact]
+    public async Task UpdatePermanentPlanetAsyncPersistsPlanetName() {
+        await ResetUsersAsync();
+        var repository = CreateRepository();
+        var created = await repository.CreateAsync("red@example.com", "hashed-pw", "Red");
+
+        await repository.UpdatePermanentPlanetAsync(created.UserId, "Vulcan");
+
+        var updated = await repository.GetByIdAsync(created.UserId);
+        Assert.NotNull(updated);
+        Assert.Equal("Vulcan", updated!.PermanentPlanetName);
+    }
+
+    [Fact]
+    public async Task UpdatePermanentPlanetAsyncAcceptsNullToClear() {
+        await ResetUsersAsync();
+        var repository = CreateRepository();
+        var created = await repository.CreateAsync("red@example.com", "hashed-pw", "Red");
+        await repository.UpdatePermanentPlanetAsync(created.UserId, "Vulcan");
+
+        await repository.UpdatePermanentPlanetAsync(created.UserId, null);
+
+        var updated = await repository.GetByIdAsync(created.UserId);
+        Assert.NotNull(updated);
+        Assert.Null(updated!.PermanentPlanetName);
+    }
+
+    [Fact]
+    public async Task GetByIdAsyncReturnsNullPermanentPlanetForNewUser() {
+        await ResetUsersAsync();
+        var repository = CreateRepository();
+        var created = await repository.CreateAsync("red@example.com", "hashed-pw", "Red");
+
+        var fetched = await repository.GetByIdAsync(created.UserId);
+
+        Assert.NotNull(fetched);
+        Assert.Null(fetched!.PermanentPlanetName);
+    }
+
+    [Fact]
     public async Task DeleteAsyncRemovesUser() {
         await ResetUsersAsync();
         var repository = CreateRepository();

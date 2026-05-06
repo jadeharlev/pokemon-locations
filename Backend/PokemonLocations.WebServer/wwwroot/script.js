@@ -388,6 +388,7 @@ async function loadUserInfo() {
         const user = await res.json();
 
         applyTheme(user.theme);
+        setHomePlanet(user.permanentPlanetName ?? null);
 
         container.innerHTML = `
             <p>Logged in as: <strong>${escapeHtml(user.displayName)}</strong></p>
@@ -445,6 +446,44 @@ function setupActions() {
         themeModal.show();
     });
 
+    const locationModalEl = document.getElementById('location-modal');
+    const locationModal = new bootstrap.Modal(locationModalEl);
+    const openLocationModal = () => locationModal.show();
+    document.getElementById('btn-set-location').addEventListener('click', openLocationModal);
+    document.getElementById('current-location').addEventListener('click', openLocationModal);
+
+    document.getElementById('location-options').addEventListener('click', async (event) => {
+        const btn = event.target.closest('.location-option');
+        if (!btn) return;
+        const planetName = btn.dataset.planet;
+        const previousName = weatherState.homePlanetName;
+        const previousTemp = weatherState.homePlanetTemp;
+
+        setHomePlanet(planetName);
+
+        try {
+            const res = await PLAuth.authFetch('/account/permanent-planet', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ planetName })
+            });
+            if (!res.ok) {
+                weatherState.homePlanetName = previousName;
+                weatherState.homePlanetTemp = previousTemp;
+                renderCurrentLocation();
+                alert('Failed to set location.');
+                return;
+            }
+            locationModal.hide();
+        } catch (e) {
+            weatherState.homePlanetName = previousName;
+            weatherState.homePlanetTemp = previousTemp;
+            renderCurrentLocation();
+            console.error('Set location failed:', e.message);
+            alert('Failed to set location.');
+        }
+    });
+
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', async () => {
             const selectedTheme = btn.dataset.theme;
@@ -483,13 +522,69 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-// ─── Weather ticker ───
+// ─── Weather ticker + home planet indicator ───
 const TICKER_FRAME_MS = 4000;
+
+const weatherState = {
+    planets: [],
+    homePlanetName: null,
+    homePlanetTemp: null
+};
 
 function randomInt(min, max) {
     const lo = Math.ceil(min);
     const hi = Math.floor(max);
     return Math.floor(Math.random() * (hi - lo + 1)) + lo;
+}
+
+function findPlanet(name) {
+    if (!name) return null;
+    const lower = name.toLowerCase();
+    return weatherState.planets.find(p => p.name.toLowerCase() === lower) ?? null;
+}
+
+function renderCurrentLocation() {
+    const el = document.getElementById('current-location');
+    if (!el) return;
+    const name = weatherState.homePlanetName;
+    if (!name) {
+        el.textContent = 'Current: not set';
+        return;
+    }
+    const temp = weatherState.homePlanetTemp;
+    el.textContent = temp == null
+        ? `Current: ${name}`
+        : `Current: ${temp}° (${name})`;
+}
+
+function setHomePlanet(name) {
+    weatherState.homePlanetName = name;
+    const planet = findPlanet(name);
+    weatherState.homePlanetTemp = planet
+        ? randomInt(planet.minTemp, planet.maxTemp)
+        : null;
+    renderCurrentLocation();
+}
+
+function populateLocationModal() {
+    const container = document.getElementById('location-options');
+    if (!container) return;
+    if (weatherState.planets.length === 0) {
+        container.replaceChildren();
+        const empty = document.createElement('p');
+        empty.className = 'loading-text';
+        empty.textContent = 'No planets available.';
+        container.appendChild(empty);
+        return;
+    }
+    container.replaceChildren();
+    weatherState.planets.forEach(planet => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-outline-secondary location-option';
+        btn.dataset.planet = planet.name;
+        btn.textContent = planet.name;
+        container.appendChild(btn);
+    });
 }
 
 async function startWeatherTicker() {
@@ -506,16 +601,29 @@ async function startWeatherTicker() {
     }
     if (!Array.isArray(planets) || planets.length === 0) return;
 
+    weatherState.planets = planets;
+    populateLocationModal();
+    if (weatherState.homePlanetName && weatherState.homePlanetTemp == null) {
+        setHomePlanet(weatherState.homePlanetName);
+    }
+
     let index = 0;
     const showNext = () => {
         if (document.hidden) return;
         const planet = planets[index % planets.length];
         index += 1;
 
+        const temp = randomInt(planet.minTemp, planet.maxTemp);
         const item = document.createElement('div');
         item.className = 'ticker-item';
-        item.textContent = `${planet.name}: ${randomInt(planet.minTemp, planet.maxTemp)}° C`;
+        item.textContent = `${planet.name}: ${temp}° C`;
         host.replaceChildren(item);
+
+        if (weatherState.homePlanetName &&
+            planet.name.toLowerCase() === weatherState.homePlanetName.toLowerCase()) {
+            weatherState.homePlanetTemp = temp;
+            renderCurrentLocation();
+        }
     };
 
     showNext();

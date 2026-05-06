@@ -6,5 +6,6 @@ public class User {
     public string PasswordHash { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
     public string Theme { get; set; } = "bulbasaur";
+    public string? PermanentPlanetName { get; set; }
     public DateTime CreatedAt { get; set; }
 }

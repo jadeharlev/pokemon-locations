@@ -4,6 +4,7 @@ using System.Text.Json;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Models;
 using PokemonLocations.WebServer.Tests.Infrastructure;
 using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
@@ -12,10 +13,12 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 [Collection("PostgresAndRedis")]
 public class AccountControllerTests {
     private readonly PostgresFixture postgresFixture;
+    private readonly RedisFixture redisFixture;
     private readonly PokemonLocationsWebServerFactory factory;
 
     public AccountControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
         this.postgresFixture = postgresFixture;
+        this.redisFixture = redisFixture;
         factory = new PokemonLocationsWebServerFactory(
             postgresFixture.ConnectionString,
             redisFixture.ConnectionString);
@@ -244,6 +247,7 @@ public class AccountControllerTests {
         Assert.Equal("red@example.com", body.GetProperty("email").GetString());
         Assert.Equal("Red", body.GetProperty("displayName").GetString());
         Assert.Equal("bulbasaur", body.GetProperty("theme").GetString());
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("permanentPlanetName").ValueKind);
     }
 
     [Fact]
@@ -294,6 +298,68 @@ public class AccountControllerTests {
         var response = await client.PutAsJsonAsync("/account/theme", new { theme = "charmander" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    private static Planet StubPlanet(string name) =>
+        new(name, "TestSystem", 1.0, 50.0, -10.0, "test", "");
+
+    private PokemonLocationsWebServerFactory FactoryWithPlanets(params string[] names) =>
+        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
+            WeatherClient = new FakeStarTrekWeatherApiClient(names.Select(StubPlanet).ToArray())
+        };
+
+    [Fact]
+    public async Task UpdatePermanentPlanetReturns204AndPersists() {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        using var custom = FactoryWithPlanets("Vulcan", "Risa");
+        var client = custom.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        var response = await client.PutAsJsonAsync("/account/permanent-planet",
+            new { planetName = "Vulcan" });
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        var meResponse = await client.GetAsync("/api/me");
+        var body = await ReadJsonAsync(meResponse);
+        Assert.Equal("Vulcan", body.GetProperty("permanentPlanetName").GetString());
+    }
+
+    [Fact]
+    public async Task UpdatePermanentPlanetReturns400ForUnknownPlanet() {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        using var custom = FactoryWithPlanets("Vulcan");
+        var client = custom.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        var response = await client.PutAsJsonAsync("/account/permanent-planet",
+            new { planetName = "Krypton" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task UpdatePermanentPlanetReturns401WithoutBasicHeader() {
+        var client = factory.CreateClient();
+
+        var response = await client.PutAsJsonAsync("/account/permanent-planet",
+            new { planetName = "Vulcan" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task MeReturnsNullPermanentPlanetForNewUser() {
+        await ResetUsersAsync();
+        await SeedUserAsync("red@example.com", "pikachu123", "Red");
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        var response = await client.GetAsync("/api/me");
+
+        var body = await ReadJsonAsync(response);
+        Assert.Equal(JsonValueKind.Null, body.GetProperty("permanentPlanetName").ValueKind);
     }
 
     private Task SeedUserAsync(string email, string password, string displayName) =>

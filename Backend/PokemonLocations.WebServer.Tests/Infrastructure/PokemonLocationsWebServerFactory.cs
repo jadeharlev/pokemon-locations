@@ -13,6 +13,7 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
     public const string JwtAudience = "pokemon-locations-clients-test";
 
     public IPokemonLocationsApiClient? ApiClient { get; init; }
+    public IStarTrekWeatherApiClient? WeatherClient { get; init; }
 
     public PokemonLocationsWebServerFactory(string postgresConnectionString, string redisConnectionString) {
         Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", postgresConnectionString);
@@ -29,6 +30,12 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
             builder.ConfigureTestServices(services => {
                 services.RemoveAll<IPokemonLocationsApiClient>();
                 services.AddSingleton(ApiClient);
+            });
+        }
+        if (WeatherClient is not null) {
+            builder.ConfigureTestServices(services => {
+                services.RemoveAll<IStarTrekWeatherApiClient>();
+                services.AddSingleton(WeatherClient);
             });
         }
     }

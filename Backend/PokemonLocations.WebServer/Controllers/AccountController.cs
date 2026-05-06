@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
+using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database.Repositories;
 using PokemonLocations.WebServer.Models.Requests;
 using PokemonLocations.WebServer.Models.Responses;
@@ -14,10 +15,15 @@ public class AccountController : ControllerBase {
 
     private readonly IUserRepository userRepository;
     private readonly PasswordHasher passwordHasher;
+    private readonly IStarTrekWeatherApiClient weatherClient;
 
-    public AccountController(IUserRepository userRepository, PasswordHasher passwordHasher) {
+    public AccountController(
+        IUserRepository userRepository,
+        PasswordHasher passwordHasher,
+        IStarTrekWeatherApiClient weatherClient) {
         this.userRepository = userRepository;
         this.passwordHasher = passwordHasher;
+        this.weatherClient = weatherClient;
     }
 
     [HttpPost("/account/signup")]
@@ -47,6 +53,19 @@ public class AccountController : ControllerBase {
     public async Task<IActionResult> UpdateTheme([FromBody] UpdateThemeRequest request) {
         if (!ModelState.IsValid) return BadRequest(ModelState);
         await userRepository.UpdateThemeAsync(User.GetUserId(), request.Theme);
+        return NoContent();
+    }
+
+    [HttpPut("/account/permanent-planet")]
+    public async Task<IActionResult> UpdatePermanentPlanet(
+        [FromBody] UpdatePermanentPlanetRequest request,
+        CancellationToken ct) {
+        if (!ModelState.IsValid) return BadRequest(ModelState);
+        var planet = await weatherClient.GetByNameAsync(request.PlanetName, ct);
+        if (planet is null) {
+            return BadRequest(new { error = "unknown_planet" });
+        }
+        await userRepository.UpdatePermanentPlanetAsync(User.GetUserId(), planet.Name);
         return NoContent();
     }
 

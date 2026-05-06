@@ -58,6 +58,27 @@
       pointer-events: none;
     }
 
+    #current-location {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      left: 16px;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: #FFF;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      letter-spacing: 0;
+    }
+
+    #current-location:hover {
+      text-decoration: underline;
+    }
+
     .ticker-item {
       position: absolute;
       right: 0;
@@ -432,6 +453,7 @@
 <body>
 
   <div class="top-bar" id="top-bar">
+    <button type="button" id="current-location" aria-label="Set permanent location">Current: not set</button>
     <span class="top-bar-brand">PokéLocs</span>
     <div id="weather-ticker" aria-live="polite"></div>
   </div>
@@ -507,6 +529,7 @@
       </div>
 
       <div class="action-buttons">
+        <button class="btn-action" id="btn-set-location">Set Location</button>
         <button class="btn-action btn-danger" id="btn-delete-account">Delete Account</button>
         <button class="btn-action" id="btn-change-theme">Change Theme</button>
         <button class="btn-action" id="btn-log-out">Log Out</button>
@@ -540,6 +563,22 @@
             <button class="btn btn-outline-secondary theme-option" data-theme="mew">Mew (Pink)</button>
             <button class="btn btn-outline-secondary theme-option" data-theme="dragonite">Dragonite (Orange)</button>
 
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="location-modal" tabindex="-1" aria-labelledby="location-modal-label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="location-modal-label">Choose your home planet</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-grid gap-2" id="location-options">
+            <p class="loading-text">Loading planets…</p>
           </div>
         </div>
       </div>

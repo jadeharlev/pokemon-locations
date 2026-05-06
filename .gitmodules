@@ -1,0 +1,3 @@
+[submodule "external/SE498-Capstone"]
+	path = external/SE498-Capstone
+	url = https://github.com/jsanderswp/SE498-Capstone/

@@ -56,3 +56,6 @@ nunit-*.xml
 # JetBrains IDE
 .idea/
 *.DotSettings.user
+
+# dev-up.sh saved runtime choice (per-developer)
+scripts/.runtime

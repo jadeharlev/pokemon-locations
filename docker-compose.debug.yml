@@ -1,8 +1,9 @@
 # Useful Link: https://learn.microsoft.com/en-us/aspnet/core/security/docker-compose-https?view=aspnetcore-10.0#macos-or-linux
 
 services:
-  api:
+  pokemon-locations-api:
     container_name: PokemonLocations-Api
+    image: pokemonlocations/api:latest
     build:
       context: ./Backend
       dockerfile: PokemonLocations.Api/Dockerfile
@@ -57,6 +58,7 @@ services:
   webserver:
     container_name: PokemonLocations-WebServer
     profiles: ["frontend"]
+    image: pokemonlocations/webserver:latest
     build:
       context: ./Backend
       dockerfile: PokemonLocations.WebServer/Dockerfile
@@ -73,12 +75,12 @@ services:
       - Jwt__Key=local-dev-jwt-key-must-be-at-least-32-bytes-long-for-hs256!
       - Jwt__Issuer=pokemon-locations-api
       - Jwt__Audience=pokemon-locations-clients
-      - PokemonLocationsApi__BaseUrl=http://api:8080
+      - PokemonLocationsApi__BaseUrl=http://pokemon-locations-api:8080
     volumes:
       - ~/.aspnet/https:/https:ro
       - webserver_uploads:/app/uploads
     depends_on:
-      api:
+      pokemon-locations-api:
         condition: service_started
       cache:
         condition: service_started

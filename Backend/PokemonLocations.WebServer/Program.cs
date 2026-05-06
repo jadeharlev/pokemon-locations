@@ -52,6 +52,19 @@ builder.Services.AddSingleton<IPokemonLocationsApiClient>(provider => {
     return new CachingApiClientDecorator(inner, cache, TimeSpan.FromMinutes(5));
 });
 
+var weatherBaseUrl = builder.Configuration["StarTrekWeatherApi:BaseUrl"]
+    ?? throw new InvalidOperationException("StarTrekWeatherApi:BaseUrl is missing");
+var weatherUser = builder.Configuration["StarTrekWeatherApi:Username"]
+    ?? throw new InvalidOperationException("StarTrekWeatherApi:Username is missing");
+var weatherPass = builder.Configuration["StarTrekWeatherApi:Password"]
+    ?? throw new InvalidOperationException("StarTrekWeatherApi:Password is missing");
+var weatherCreds = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{weatherUser}:{weatherPass}"));
+builder.Services.AddHttpClient<IStarTrekWeatherApiClient, StarTrekWeatherApiClient>(client => {
+    client.BaseAddress = new Uri(weatherBaseUrl);
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", weatherCreds);
+});
+
 builder.Services.AddStackExchangeRedisCache(options => {
     options.Configuration = redisConnectionString;
     options.InstanceName = "PokemonLocations.WebServer:";

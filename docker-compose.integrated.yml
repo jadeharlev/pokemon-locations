@@ -5,6 +5,8 @@ services:
       - app-network
     environment:
       - StarTrekWeatherApi__BaseUrl=http://api:8080
+      - StarTrekWeatherApi__Username=admin
+      - StarTrekWeatherApi__Password=password123
 
   web-db:
     ports: []

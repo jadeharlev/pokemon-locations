@@ -40,7 +40,6 @@ builder.Services.AddScoped<IDatabaseHealthRepository, DatabaseHealthRepository>(
 builder.Services.AddScoped<ILocationRepository, DapperLocationRepository>();
 builder.Services.AddScoped<IBuildingRepository, DapperBuildingRepository>();
 builder.Services.AddScoped<IGymRepository, DapperGymRepository>();
-builder.Services.AddScoped<ILocationImageRepository, DapperLocationImageRepository>();
 
 var jwtKey = builder.Configuration["Jwt:Key"]
     ?? throw new InvalidOperationException("Jwt:Key is missing");

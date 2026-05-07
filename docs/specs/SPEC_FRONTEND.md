@@ -55,7 +55,7 @@ The application's primary view, behind Basic Auth. Uses `script.js` to render an
 
 **Sections (inline within the page):**
 - **Locations list** — populated from `GET /api/locations`; clicking a location loads its detail.
-- **Location detail** — name, description, image gallery, embedded video (if `videoUrl` present), and a buildings list. Populated from `GET /api/locations/{id}` plus `GET /api/locations/{id}/buildings`.
+- **Location detail** — name, description, image gallery, embedded video (if `videoUrl` present), and a buildings list. Populated from `GET /api/locations/{id}` plus `GET /api/locations/{id}/buildings`. The image gallery renders the canonical `images` array as a fixed-aspect carousel (cover-fit, themed prev/next arrows, 5 s auto-advance when more than one image, paused while the modal is open). Clicking any slide opens a full-size modal viewer; close via the X button, clicking the overlay, or pressing Escape. When the user-image upload feature ships (SE498-68), uploaded images will appear in the same carousel after the canonical covers.
 - **Building tracking** — clicking a building toggles its visited status via `PUT`/`DELETE /api/me/visited/buildings/{locationId}/{buildingId}`. Building visited status is read from the merged proxy response.
 - **Visited progress** — a header strip that summarizes visited buildings per location ("3/5 Visited" / "All Locations Visited" / etc.).
 - **Badges** — read via `GET /api/me/badges`, toggled per-badge with `PUT`/`DELETE /api/me/badges/{badge}`.

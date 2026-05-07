@@ -38,7 +38,10 @@ public class LocationsControllerTests {
         """[{"locationId":1,"name":"Pallet Town","description":"A quiet town.","videoUrl":null},{"locationId":2,"name":"Viridian City","description":"A green city.","videoUrl":null}]""";
 
     private const string SingleLocationJson =
-        """{"locationId":1,"name":"Pallet Town","description":"A quiet town.","videoUrl":null}""";
+        """{"locationId":1,"name":"Pallet Town","description":"A quiet town.","videoUrl":null,"images":[{"imageId":1,"locationId":1,"imageUrl":"/images/pallet-town-overview.png","displayOrder":1,"caption":"Pallet Town overview"}]}""";
+
+    private const string SingleLocationJsonNoImages =
+        """{"locationId":2,"name":"Viridian City","description":"A green city.","videoUrl":null,"images":[]}""";
 
     // --- 401 tests ---
 
@@ -148,6 +151,39 @@ public class LocationsControllerTests {
         var body = await ReadJsonAsync(response);
 
         Assert.Equal(0, body.GetProperty("userImages").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task GetByIdPassesCanonicalImagesThrough() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = CreateApiClient();
+        apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
+        var factory = CreateFactory(apiClient);
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var response = await client.GetAsync("/api/locations/1");
+        var body = await ReadJsonAsync(response);
+
+        var images = body.GetProperty("images");
+        Assert.Equal(1, images.GetArrayLength());
+        Assert.Equal("/images/pallet-town-overview.png", images[0].GetProperty("imageUrl").GetString());
+        Assert.Equal("Pallet Town overview", images[0].GetProperty("caption").GetString());
+    }
+
+    [Fact]
+    public async Task GetByIdPassesEmptyImagesArrayThrough() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = CreateApiClient();
+        apiClient.GetWithStatusAsync("/locations/2").Returns(new ApiResponse(200, SingleLocationJsonNoImages));
+        var factory = CreateFactory(apiClient);
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var response = await client.GetAsync("/api/locations/2");
+        var body = await ReadJsonAsync(response);
+
+        Assert.Equal(0, body.GetProperty("images").GetArrayLength());
     }
 
     [Fact]

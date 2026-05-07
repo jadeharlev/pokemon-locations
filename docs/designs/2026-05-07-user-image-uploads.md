@@ -207,6 +207,8 @@ Upload a single file. Frontend batches sequential POSTs for multi-file uploads.
 
 `userImages` is **ordered newest-first** (matches the `(user_id, location_id, uploaded_at DESC)` index).
 
+**DTO mapping:** the BFF maps each `UserImage` record from the repository to a single `UploadedImageResponse` DTO used for both the POST 201 body and the userImages array — same shape, same projection. The DTO surfaces only the four fields above; sensitive/internal fields (`filePath`, `userId`, raw byte size) stay server-side.
+
 ## 6. Image Processing Pipeline (SkiaSharp)
 
 ### 6.1 Dependencies
@@ -216,41 +218,89 @@ Upload a single file. Frontend batches sequential POSTs for multi-file uploads.
 
 ### 6.2 Pipeline Steps
 
+`IImageProcessor` is a **pure function**: bytes in, bytes out. No file I/O, no DB. The controller orchestrates the file write and DB insert around the processor call.
+
 ```csharp
-// 1. Decode bomb prevention — read header before allocating pixels
-using var codec = SKCodec.Create(stream);
-if (codec is null) return 415;                              // not decodable
-if (codec.EncodedFormat is not (Png|Jpeg|Webp)) return 415; // mislabeled MIME, real format unsupported
-if (codec.Info.Width * codec.Info.Height > 50_000_000) return 400; // >50 MP rejected
+// Inside IImageProcessor.ProcessAsync(Stream input, CancellationToken ct):
 
-// 2. Decode pixels (now safe)
-using var bitmap = SKBitmap.Decode(codec);
-
-// 3. Resize if needed
-var longest = Math.Max(bitmap.Width, bitmap.Height);
-SKBitmap final = bitmap;
-if (longest > 2000) {
-    var scale = 2000.0 / longest;
-    var newW = (int)(bitmap.Width * scale);
-    var newH = (int)(bitmap.Height * scale);
-    final = bitmap.Resize(new SKImageInfo(newW, newH),
-        new SKSamplingOptions(SKCubicResampler.Mitchell));
+// 1. Decode-bomb prevention — read header before allocating pixels
+using var managedStream = new SKManagedStream(input);
+using var codec = SKCodec.Create(managedStream);
+if (codec is null) throw new DecodeFailedException();
+if (codec.EncodedFormat is not (SKEncodedImageFormat.Png
+                              or SKEncodedImageFormat.Jpeg
+                              or SKEncodedImageFormat.Webp)) {
+    throw new UnsupportedFormatException();
+}
+if ((long)codec.Info.Width * codec.Info.Height > 50_000_000) {
+    throw new DecodeBombException();
 }
 
-// 4. Re-encode in original format with quality 85 (PNG ignores quality, lossless)
-using var image = SKImage.FromBitmap(final);
-using var data = image.Encode(codec.EncodedFormat, 85);
+// 2. Decode pixels (now safe)
+using var sourceBitmap = SKBitmap.Decode(codec);
+if (sourceBitmap is null) throw new DecodeFailedException();
 
-// 5. Ensure user dir exists, atomic write
-Directory.CreateDirectory(userDir);   // idempotent
+// 3. Resize if needed; ensure both possible bitmaps are disposed
+var longest = Math.Max(sourceBitmap.Width, sourceBitmap.Height);
+SKBitmap? resizedBitmap = null;
+try {
+    SKBitmap workingBitmap = sourceBitmap;
+    if (longest > 2000) {
+        var scale = 2000.0 / longest;
+        var newW = (int)(sourceBitmap.Width * scale);
+        var newH = (int)(sourceBitmap.Height * scale);
+        resizedBitmap = sourceBitmap.Resize(
+            new SKImageInfo(newW, newH),
+            new SKSamplingOptions(SKCubicResampler.Mitchell));
+        if (resizedBitmap is null) throw new DecodeFailedException();
+        workingBitmap = resizedBitmap;
+    }
+
+    // 4. Encode in original format. Quality 85 for lossy; PNG ignores it.
+    using var image = SKImage.FromBitmap(workingBitmap);
+    using var data = image.Encode(codec.EncodedFormat, 85);
+
+    return new ProcessedImage(
+        Bytes: data.ToArray(),
+        Format: codec.EncodedFormat,
+        Width: workingBitmap.Width,
+        Height: workingBitmap.Height);
+} finally {
+    resizedBitmap?.Dispose();
+}
+```
+
+The controller, after `ProcessAsync` returns, performs:
+
+```csharp
+// 5. Atomic disk write
+Directory.CreateDirectory(userDir);                 // idempotent
 var tempPath = Path.Combine(userDir, $"{uuid}.tmp");
 var finalPath = Path.Combine(userDir, $"{uuid}.{ext}");
-File.WriteAllBytes(tempPath, data.ToArray());
-File.Move(tempPath, finalPath);       // atomic on POSIX same-volume
+await File.WriteAllBytesAsync(tempPath, processed.Bytes);
+File.Move(tempPath, finalPath);                     // atomic on POSIX same-volume
 
-// 6. Open SERIALIZABLE transaction, recheck cap, insert row.
-//    On serialization conflict: catch, delete finalPath, return 409.
-//    On any other failure after file write: catch, delete finalPath, surface error.
+// 6. Race-safe insert via repository (Section 4.2)
+try {
+    var result = await userImageRepository.AddAsync(image, locationCap: 20);
+    if (result == AddResult.AtCap) {
+        File.Delete(finalPath);
+        return BadRequest(new { error = "cap_reached" });
+    }
+} catch (PostgresException ex) when (ex.SqlState == "40001") {
+    // server-side retry once
+    try {
+        var retryResult = await userImageRepository.AddAsync(image, locationCap: 20);
+        if (retryResult == AddResult.AtCap) {
+            File.Delete(finalPath);
+            return BadRequest(new { error = "cap_reached" });
+        }
+    } catch (PostgresException) {
+        File.Delete(finalPath);
+        return Conflict(new { error = "serialization_conflict" });
+    }
+}
+return Created(/* ... */);
 ```
 
 ### 6.3 Pipeline Notes
@@ -260,13 +310,31 @@ File.Move(tempPath, finalPath);       // atomic on POSIX same-volume
 - **Format preservation:** PNG → PNG, JPEG → JPEG, WebP → WebP. Quality 85 for lossy formats; PNG ignores the quality parameter (lossless).
 - **Native binary verification:** `SkiaSharp.NativeAssets.Linux` must resolve correctly inside the WebServer Dockerfile. Tests must include an end-to-end smoke that exercises the encoder inside the testcontainer to catch packaging issues at CI time.
 
-### 6.4 Service Placement
+### 6.4 Service Placement & Contract
 
-The pipeline lives behind an interface for testability:
+The pipeline lives behind an interface — pure-function contract, no I/O, no DB:
 
-- **`Backend/PokemonLocations.WebServer/Services/IImageProcessor.cs`** — interface with one method: `Task<ProcessedImage> ProcessAsync(Stream input, CancellationToken ct)`. Returns the encoded bytes + the format actually written + final dimensions, or throws specific exceptions (`UnsupportedFormatException`, `DecodeFailedException`, `DecodeBombException`).
+```csharp
+public interface IImageProcessor {
+    Task<ProcessedImage> ProcessAsync(Stream input, CancellationToken ct);
+}
+
+public record ProcessedImage(
+    byte[] Bytes,
+    SKEncodedImageFormat Format,
+    int Width,
+    int Height);
+
+public class UnsupportedFormatException : Exception { }
+public class DecodeFailedException : Exception { }
+public class DecodeBombException : Exception { }
+```
+
+Files:
+- **`Backend/PokemonLocations.WebServer/Services/IImageProcessor.cs`** — interface + `ProcessedImage` record + exception types.
 - **`Backend/PokemonLocations.WebServer/Services/ImageProcessor.cs`** — concrete SkiaSharp implementation.
-- **Controller depends on `IImageProcessor`** — pipeline tests exercise the implementation directly with byte fixtures; controller tests can substitute a mock to exercise validation/error paths without invoking SkiaSharp.
+
+Controller depends on `IImageProcessor`. Pipeline tests exercise the real implementation with byte fixtures; controller tests substitute a mock to exercise validation/error paths without SkiaSharp. Disk I/O and DB inserts happen in the controller after the processor returns — clean SRP.
 
 ### 6.5 File Extension Mapping
 
@@ -286,7 +354,8 @@ The `content_type` column stores the canonical MIME (`image/png`, `image/jpeg`, 
 
 - `script.js:renderGallery(galleryEl, images, locationName)` already concatenates `images + userImages` and renders them through the carousel.
 - `index.html` has the existing gallery markup with prev/next arrows, modal, etc.
-- `auth.js:PLAuth.authFetch(path, options)` already attaches Basic Auth from `sessionStorage`.
+- `auth.js:PLAuth.authFetch(path, options)` attaches Basic Auth from `sessionStorage` AND on a 401 response automatically clears creds and redirects to `/signin.html` (verified at `auth.js:34-44`). User-image fetches inherit this expiry-redirect behavior for free.
+- `script.js:apiFetch(path, options)` is a wrapper that prepends `/api` to `path` and calls `PLAuth.authFetch`. **Use `apiFetch` for paths like `/locations/1`; use `PLAuth.authFetch` directly for full paths that already start with `/api/...`** to avoid double-prefixing to `/api/api/...`. This matters: user-image URLs (`/api/me/locations/.../images/...`) come pre-prefixed in the API response, so they go through `PLAuth.authFetch` directly.
 
 ### 7.2 New DOM Elements
 
@@ -336,7 +405,7 @@ Triggered by either button click or drag-drop. Both paths converge:
 1. **Get a `FileList`.**
 2. **Client-side filter:** drop entries whose `type` isn't in the allowlist or whose `size > 10 MB`. Collect rejected ones for end-of-batch report.
 3. **Cap check:** `currentCount + acceptedCount > 20` → trim batch to fit, mark overflow as rejected.
-4. **Sequential POSTs** to `/api/me/locations/{locationId}/images`. One at a time. Mid-batch failure does not stop the batch; failures are collected.
+4. **Sequential POSTs** to `/api/me/locations/{locationId}/images` via `PLAuth.authFetch` (URL is fully prefixed; do NOT use `apiFetch`). One file at a time, body is `FormData` with one `file` entry. Mid-batch failure does not stop the batch; failures are collected.
 5. **Per-success:** prepend the returned image record to `location.userImages`, call `renderGallery` again with the merged list, kick off `loadUserImageBlob` for the new slide.
 6. **End-of-batch toast:** counts successes and failure categories. Auto-dismiss after 4 s on full success; persistent until user-dismissed if any failures.
 
@@ -347,8 +416,8 @@ Toast message format: `"3 uploaded · 1 skipped (too large) · 1 skipped (would 
 ### 7.5 Delete Flow
 
 1. User clicks the slide's "X" → native `confirm("Delete this image?")`.
-2. On confirm: `DELETE /api/me/locations/{locationId}/images/{imageId}` via `authFetch`.
-3. On 204: revoke the slide's blob URL, remove image from `location.userImages`, call `renderGallery` again.
+2. On confirm: `DELETE /api/me/locations/{locationId}/images/{imageId}` via `PLAuth.authFetch` (full path, do not double-prefix).
+3. On 204: revoke the slide's blob URL via `URL.revokeObjectURL`, remove image from `location.userImages`, call `renderGallery` again.
 4. On 404 or other failure: surface a brief error toast, no in-memory mutation.
 
 ### 7.6 Drag-Drop Event Handling
@@ -390,17 +459,24 @@ Image load fetches use `PLAuth.authFetch`, which already handles session-expiry 
 
 The existing `DELETE /account` endpoint (`AccountController.Delete` → `userRepository.DeleteAsync(userId)`) handles row cleanup via the `user_id` FK cascade — `user_images` rows go away automatically.
 
-What we need to add: extend `UserRepository.DeleteAsync` (or, if cleaner, the controller action itself) to also remove the user's upload directory after the DB transaction commits:
+What we need to add: `AccountController.Delete` does the orchestration — calls the existing `userRepository.DeleteAsync(userId)` (which cascades the DB rows), then removes the user's upload directory:
 
 ```csharp
-var userDir = Path.Combine(uploadRoot, userId.ToString());
-if (Directory.Exists(userDir)) {
-    try { Directory.Delete(userDir, recursive: true); }
-    catch (IOException ex) { logger.LogWarning(ex, "Failed to delete upload dir for user {UserId}", userId); }
+[HttpDelete("/account")]
+public async Task<IActionResult> Delete(IOptions<UserImagesOptions> options) {
+    var userId = User.GetUserId();
+    await userRepository.DeleteAsync(userId);  // existing call; FK cascade nukes user_images rows
+
+    var userDir = Path.Combine(options.Value.UploadRoot, userId.ToString());
+    if (Directory.Exists(userDir)) {
+        try { Directory.Delete(userDir, recursive: true); }
+        catch (IOException ex) { logger.LogWarning(ex, "Failed to delete upload dir for user {UserId}", userId); }
+    }
+    return NoContent();
 }
 ```
 
-If file deletion fails, log and continue — DB rows are gone, the orphan files are never referenced and harmless. This addition needs its own test in `UserRepositoryTests` (or `AccountControllerTests`) verifying the directory is removed on account deletion.
+`UserRepository.DeleteAsync` stays pure-DB; the controller orchestrates DB + FS. If file deletion fails, log and continue — DB rows are gone, the orphan files are never referenced and harmless. This addition needs its own test in `AccountControllerTests` verifying the directory is removed on account deletion.
 
 ## 9. Testing Strategy
 
@@ -529,7 +605,7 @@ Backend/PokemonLocations.WebServer/
 - `Backend/PokemonLocations.WebServer/Program.cs` — DI + Form/Kestrel limits
 - `Backend/PokemonLocations.WebServer/appsettings.json` — `UserImages` config block
 - `Backend/PokemonLocations.WebServer/Controllers/LocationsController.cs` — populate `userImages` from new repo
-- `Backend/PokemonLocations.WebServer/Database/Repositories/UserRepository.cs` (or `AccountController.Delete`) — disk cleanup on account deletion
+- `Backend/PokemonLocations.WebServer/Controllers/AccountController.cs` — extend `Delete` action to remove the user's upload directory after the DB cascade
 - `Backend/PokemonLocations.WebServer/wwwroot/index.html` — upload button, hidden file input, drag overlay, slide delete button styling
 - `Backend/PokemonLocations.WebServer/wwwroot/script.js` — `renderGallery` upgrades, `loadUserImageBlob`, upload flow, delete flow, drag-drop handlers, blob URL tracking & cleanup
 

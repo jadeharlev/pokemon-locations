@@ -6,6 +6,135 @@ let allLocations = [];
 let selectedLocationId = null;
 let currentBadges = new Set();
 let noteDebounceTimer = null;
+let galleryTimer = null;
+
+// ─── Gallery carousel + modal ───
+const GALLERY_INTERVAL_MS = 5000;
+let resumeCarousel = null;
+
+function openGalleryModal(src, caption) {
+    const modal = document.getElementById('gallery-modal');
+    const img = document.getElementById('modal-image');
+    const captionEl = document.getElementById('modal-caption');
+    if (!modal || !img) return;
+
+    if (galleryTimer) {
+        clearInterval(galleryTimer);
+        galleryTimer = null;
+    }
+
+    img.src = src;
+    img.alt = caption || '';
+    if (caption) {
+        captionEl.textContent = caption;
+        captionEl.style.display = 'block';
+    } else {
+        captionEl.style.display = 'none';
+    }
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeGalleryModal() {
+    const modal = document.getElementById('gallery-modal');
+    const img = document.getElementById('modal-image');
+    if (!modal) return;
+    modal.classList.remove('open');
+    if (img) img.src = '';
+    document.body.style.overflow = '';
+    if (resumeCarousel) resumeCarousel();
+}
+
+function setupGalleryModal() {
+    const modal = document.getElementById('gallery-modal');
+    const closeBtn = document.getElementById('modal-close');
+    if (!modal || !closeBtn) return;
+
+    closeBtn.addEventListener('click', closeGalleryModal);
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeGalleryModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.classList.contains('open')) closeGalleryModal();
+    });
+}
+
+function renderGallery(galleryEl, images, locationName) {
+    if (galleryTimer) {
+        clearInterval(galleryTimer);
+        galleryTimer = null;
+    }
+    resumeCarousel = null;
+    galleryEl.replaceChildren();
+
+    if (images.length === 0) {
+        galleryEl.textContent = 'Image Gallery';
+        return;
+    }
+
+    const slides = images.map((img, i) => {
+        const slide = document.createElement('div');
+        slide.className = 'gallery-slide' + (i === 0 ? ' active' : '');
+
+        const bg = document.createElement('img');
+        bg.className = 'slide-bg';
+        bg.src = img.imageUrl || img.url;
+        bg.alt = '';
+        bg.setAttribute('aria-hidden', 'true');
+
+        const fg = document.createElement('img');
+        fg.className = 'slide-fg';
+        fg.src = img.imageUrl || img.url;
+        fg.alt = img.caption || locationName || '';
+        fg.addEventListener('click', () => openGalleryModal(fg.src, img.caption || locationName || ''));
+
+        slide.append(bg, fg);
+        galleryEl.appendChild(slide);
+        return slide;
+    });
+
+    if (slides.length === 1) return;
+
+    let active = 0;
+    const goTo = (target) => {
+        const next = ((target % slides.length) + slides.length) % slides.length;
+        if (next === active) return;
+        slides[active].classList.remove('active');
+        slides[next].classList.add('active');
+        active = next;
+    };
+    const startTimer = () => {
+        if (galleryTimer) clearInterval(galleryTimer);
+        galleryTimer = setInterval(() => goTo(active + 1), GALLERY_INTERVAL_MS);
+    };
+    resumeCarousel = startTimer;
+
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'gallery-arrow prev';
+    prevBtn.setAttribute('aria-label', 'Previous image');
+    prevBtn.textContent = '‹';
+    prevBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        goTo(active - 1);
+        startTimer();
+    });
+    galleryEl.appendChild(prevBtn);
+
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'gallery-arrow next';
+    nextBtn.setAttribute('aria-label', 'Next image');
+    nextBtn.textContent = '›';
+    nextBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        goTo(active + 1);
+        startTimer();
+    });
+    galleryEl.appendChild(nextBtn);
+
+    startTimer();
+}
 
 // ─── Badge definitions (order matches Figma) ───
 const BADGES = [
@@ -185,18 +314,7 @@ async function loadLocationDetail(locationId) {
             ...(location.images || []),
             ...(location.userImages || [])
         ];
-
-        galleryEl.replaceChildren();
-        if (images.length > 0) {
-            images.forEach(img => {
-                const imgEl = document.createElement('img');
-                imgEl.src = img.imageUrl || img.url;
-                imgEl.alt = img.caption || location.name;
-                galleryEl.appendChild(imgEl);
-            });
-        } else {
-            galleryEl.textContent = 'Image Gallery';
-        }
+        renderGallery(galleryEl, images, location.name);
 
         // Status is computed after buildings load — see updateLocationStatus()
     } catch (e) {
@@ -634,6 +752,8 @@ async function startWeatherTicker() {
 document.addEventListener('DOMContentLoaded', async () => {
     PLAuth.requireAuth();
     if (!PLAuth.getCreds()) return;
+
+    setupGalleryModal();
 
     // Set up event listeners
 

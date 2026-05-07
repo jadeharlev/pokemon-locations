@@ -16,4 +16,7 @@ public class Location {
 
     [MaxLength(500)]
     public string? VideoUrl { get; set; }
+
+    [NotMapped]
+    public IReadOnlyList<LocationImage> Images { get; set; } = [];
 }

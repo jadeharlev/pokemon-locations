@@ -156,7 +156,7 @@ Retrieve all locations (flat list, no nested images/buildings).
 
 #### `GET /Locations/{locationId}`
 
-Retrieve a single location by ID.
+Retrieve a single location by ID, with the canonical image gallery inlined.
 
 **Response `200 OK`:**
 ```json
@@ -164,42 +164,27 @@ Retrieve a single location by ID.
   "locationId": 1,
   "name": "Pallet Town",
   "description": "A fairly new and quiet town...",
-  "videoUrl": null
+  "videoUrl": null,
+  "images": [
+    {
+      "imageId": 1,
+      "locationId": 1,
+      "imageUrl": "/images/pallet-town.png",
+      "displayOrder": 1,
+      "caption": "Pallet Town"
+    }
+  ]
 }
 ```
 
 | **Status** | **Response** |
 |---|---|
-| `200 OK` | Location object |
+| `200 OK` | Location object with `images` array (ordered by `displayOrder`) |
 | `404 Not Found` | Location does not exist |
 
-> The API returns the bare `Location` row; nested `images` and `buildings` are not included on this endpoint. Clients fetch them via the dedicated images/buildings endpoints below.
+> The detail endpoint inlines `images`. The list endpoint stays lean (no `images` field) so the locations index doesn't ship gallery payload for every row. Buildings are still fetched via the dedicated buildings endpoint below.
 
-### 4.3 Location Images
-
-#### `GET /locations/{locationId}/images`
-
-Retrieve all images for a location, ordered by `displayOrder`.
-
-**Response `200 OK`:**
-```json
-[
-  {
-    "imageId": 1,
-    "locationId": 1,
-    "imageUrl": "/images/pallet-town-overview.png",
-    "displayOrder": 1,
-    "caption": "Pallet Town overview"
-  }
-]
-```
-
-| **Status** | **Response** |
-|---|---|
-| `200 OK` | Array of image objects |
-| `404 Not Found` | Location does not exist |
-
-### 4.4 Buildings
+### 4.3 Buildings
 
 #### `GET /locations/{locationId}/buildings`
 
@@ -253,7 +238,7 @@ Retrieve a single building. If the building's `buildingType` is `"gym"`, the gym
 | `200 OK` | Building object (with `gym` if applicable) |
 | `404 Not Found` | Location or building does not exist |
 
-### 4.5 Gyms
+### 4.4 Gyms
 
 Convenience endpoints for viewing all gyms across locations, sorted by progression order.
 

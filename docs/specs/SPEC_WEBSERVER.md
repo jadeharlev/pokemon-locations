@@ -68,7 +68,7 @@ All require Basic Auth. Responses are proxied from the API with per-user state m
 | Method | Path | Merging |
 |--------|------|---------|
 | `GET` | `/api/locations` | Adds `visited: bool` per location |
-| `GET` | `/api/locations/{id}` | Adds `visited: bool` + `userImages: []` |
+| `GET` | `/api/locations/{id}` | Adds `visited: bool` + `userImages: []`. The canonical `images` array from the API is passed through unchanged. |
 | `GET` | `/api/locations/{locationId}/buildings` | Adds `visited: bool` per building |
 | `GET` | `/api/locations/{locationId}/buildings/{buildingId}` | Pure proxy (no merging) |
 | `GET` | `/api/gyms` | Pure proxy (no merging) |

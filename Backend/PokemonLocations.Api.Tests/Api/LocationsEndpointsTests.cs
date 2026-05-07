@@ -41,6 +41,15 @@ public class LocationsEndpointsTests : IAsyncLifetime {
             new { Name = name, Description = description });
     }
 
+    private async Task SeedImageAsync(int locationId, string imageUrl, int displayOrder, string? caption = null) {
+        await using var conn = new NpgsqlConnection(postgres.ConnectionString);
+        await conn.OpenAsync();
+        await conn.ExecuteAsync(
+            @"INSERT INTO location_images (location_id, image_url, display_order, caption)
+              VALUES (@LocationId, @ImageUrl, @DisplayOrder, @Caption)",
+            new { LocationId = locationId, ImageUrl = imageUrl, DisplayOrder = displayOrder, Caption = caption });
+    }
+
     [Fact]
     public async Task GetLocationsOnEmptyDbReturnsOkAndEmptyArray() {
         var response = await client.GetAsync("/locations");
@@ -80,6 +89,35 @@ public class LocationsEndpointsTests : IAsyncLifetime {
     public async Task GetByIdReturnsNotFoundForMissingId() {
         var get = await client.GetAsync("/locations/999999");
         Assert.Equal(HttpStatusCode.NotFound, get.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetByIdIncludesImagesOrderedByDisplayOrder() {
+        var newId = await SeedLocationAsync("Pallet Town");
+        await SeedImageAsync(newId, "/images/b.png", 2, "Second");
+        await SeedImageAsync(newId, "/images/a.png", 1, "First");
+
+        var get = await client.GetAsync($"/locations/{newId}");
+
+        get.EnsureSuccessStatusCode();
+        var loaded = await get.Content.ReadFromJsonAsync<Location>();
+        Assert.NotNull(loaded);
+        Assert.Equal(2, loaded!.Images.Count);
+        Assert.Equal("/images/a.png", loaded.Images[0].ImageUrl);
+        Assert.Equal("First", loaded.Images[0].Caption);
+        Assert.Equal("/images/b.png", loaded.Images[1].ImageUrl);
+    }
+
+    [Fact]
+    public async Task GetByIdReturnsEmptyImagesWhenNoneSeeded() {
+        var newId = await SeedLocationAsync("Lavender Town");
+
+        var get = await client.GetAsync($"/locations/{newId}");
+
+        get.EnsureSuccessStatusCode();
+        var loaded = await get.Content.ReadFromJsonAsync<Location>();
+        Assert.NotNull(loaded);
+        Assert.Empty(loaded!.Images);
     }
 
     [Theory]

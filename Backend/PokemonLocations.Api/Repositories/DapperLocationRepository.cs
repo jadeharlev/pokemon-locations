@@ -43,6 +43,14 @@ public class DapperLocationRepository : ILocationRepository {
             return null;
         }
 
+        var images = await connection.QueryAsync<LocationImage>(
+            @"SELECT image_id, location_id, image_url, display_order, caption
+                FROM location_images
+               WHERE location_id = @LocationId
+               ORDER BY display_order",
+            new { LocationId = locationId });
+        location.Images = images.ToList();
+
         logger.LogInformation("Successfully retrieved location with ID {LocationId} from the database.", locationId);
 
         return location;

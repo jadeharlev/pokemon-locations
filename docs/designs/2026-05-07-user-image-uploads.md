@@ -90,6 +90,44 @@ CREATE INDEX ix_user_images_user_location
 - **Composite index** — `(user_id, location_id, uploaded_at DESC)` makes the gallery query fast: "all of user X's images at location Y, newest first."
 - **`content_type`** stores the format SkiaSharp actually encoded to, not what the client claimed. Authoritative.
 
+### 4.2 Repository Contract
+
+`Backend/PokemonLocations.WebServer/Database/Repositories/IUserImageRepository.cs`:
+
+```csharp
+public interface IUserImageRepository {
+    // Inserts inside a SERIALIZABLE transaction with cap re-check.
+    // Returns Success on insert. AtCap if user already has >= cap images at the location.
+    // Throws PostgresException(SqlState=40001) on serialization conflict — controller catches and retries.
+    Task<AddResult> AddAsync(UserImage image, int locationCap);
+
+    // Newest-first by uploaded_at, scoped to (user, location).
+    Task<IReadOnlyList<UserImage>> GetForUserAndLocationAsync(int userId, int locationId);
+
+    // Returns row when (imageId, userId) matches; null otherwise.
+    Task<UserImage?> GetByIdForUserAsync(int userId, Guid imageId);
+
+    // Idempotent: 0-row delete is success.
+    Task RemoveAsync(int userId, Guid imageId);
+
+    Task<int> CountForUserAndLocationAsync(int userId, int locationId);
+}
+
+public enum AddResult { Success, AtCap }
+
+public record UserImage(
+    Guid ImageId,
+    int UserId,
+    int LocationId,
+    string FilePath,
+    string OriginalFilename,
+    string ContentType,
+    int ByteSize,
+    DateTimeOffset UploadedAt);
+```
+
+The `AddAsync` race-handling pattern: cap-check + insert happen inside one SERIALIZABLE transaction; conflicts surface as `PostgresException` with SqlState `40001`, which the controller catches for retry (Section 5.1 step 6).
+
 ## 5. API Surface
 
 All new endpoints live on the WebServer (BFF), require Basic Auth, and operate as the `currentUser`.
@@ -101,12 +139,15 @@ Upload a single file. Frontend batches sequential POSTs for multi-file uploads.
 **Request:** `multipart/form-data` with one `file` field.
 
 **Validation (in order):**
-1. Location exists per `IPokemonLocationsApiClient.ExistsAsync($"/locations/{locationId}")` → 404 if not.
-2. MIME type ∈ {`image/png`, `image/jpeg`, `image/webp`} → 400 if not.
-3. `file.Length > 10 * 1024 * 1024` → 400 ("file too large"). (Note: `MaxRequestBodySize` rejects >12 MB at the framework level with 413; this is the application-level cap.)
-4. **Pre-decode count check** (fail-fast): user's current count for this location ≥ 20 → 400. Not race-safe but provides a fast rejection before SkiaSharp work.
-5. **SkiaSharp pipeline** (Section 6) → may return 415 (decode failure) or 400 (decode bomb / dimension cap exceeded).
-6. **In-transaction count check** (race-safe): inside a SERIALIZABLE transaction, recheck count, insert row. Postgres raises a serialization error on conflicting concurrent transactions; controller catches, returns 409. (Cleanup of any file already written: see Section 6.)
+1. Location exists per `IPokemonLocationsApiClient.ExistsAsync($"/locations/{locationId}")` → 404 (`location_not_found`) if not.
+2. MIME type ∈ {`image/png`, `image/jpeg`, `image/webp`} → 400 (`unsupported_media_type`) if not.
+3. `file.Length > 10 * 1024 * 1024` → 400 (`file_too_large`). Framework-level cap (`MaxRequestBodySize`) is set to **12,582,912 bytes (12 MB exactly)** which rejects oversized request bodies with 413 before this check runs. Multipart-specific limits also need explicit configuration: `FormOptions.MultipartBodyLengthLimit` and `FormOptions.MultipartHeadersLengthLimit` set in `Program.cs` to match.
+4. **Pre-decode count check** (fail-fast): user's current count for this location ≥ 20 → 400 (`cap_reached`). Not race-safe but provides fast rejection before SkiaSharp work.
+5. **SkiaSharp pipeline** (Section 6) → may return 415 (`decode_failed`) or 400 (`decode_bomb`).
+6. **Race-safe insert** via `IUserImageRepository.AddAsync`: opens SERIALIZABLE transaction, re-checks count, inserts row. Behavior:
+   - Returns `AddResult.Success` → controller responds 201.
+   - Returns `AddResult.AtCap` → controller deletes the file already written, responds 400 (`cap_reached`).
+   - Throws `PostgresException(SqlState="40001")` on serialization conflict → controller retries the call **once**. If retry returns Success/AtCap, behave normally. If retry also throws conflict, controller deletes the file and responds 409 (`serialization_conflict`). The retry is **server-side only** — clients never observe a transient 409 absent a real second-conflict, which is vanishingly rare.
 
 **Response 201:**
 
@@ -219,6 +260,26 @@ File.Move(tempPath, finalPath);       // atomic on POSIX same-volume
 - **Format preservation:** PNG → PNG, JPEG → JPEG, WebP → WebP. Quality 85 for lossy formats; PNG ignores the quality parameter (lossless).
 - **Native binary verification:** `SkiaSharp.NativeAssets.Linux` must resolve correctly inside the WebServer Dockerfile. Tests must include an end-to-end smoke that exercises the encoder inside the testcontainer to catch packaging issues at CI time.
 
+### 6.4 Service Placement
+
+The pipeline lives behind an interface for testability:
+
+- **`Backend/PokemonLocations.WebServer/Services/IImageProcessor.cs`** — interface with one method: `Task<ProcessedImage> ProcessAsync(Stream input, CancellationToken ct)`. Returns the encoded bytes + the format actually written + final dimensions, or throws specific exceptions (`UnsupportedFormatException`, `DecodeFailedException`, `DecodeBombException`).
+- **`Backend/PokemonLocations.WebServer/Services/ImageProcessor.cs`** — concrete SkiaSharp implementation.
+- **Controller depends on `IImageProcessor`** — pipeline tests exercise the implementation directly with byte fixtures; controller tests can substitute a mock to exercise validation/error paths without invoking SkiaSharp.
+
+### 6.5 File Extension Mapping
+
+When writing files to disk, the extension is derived from the SkiaSharp-detected `EncodedFormat`, not the client's MIME claim:
+
+| `SKEncodedImageFormat` | File extension |
+|---|---|
+| `Png` | `.png` |
+| `Jpeg` | `.jpg` (chosen over `.jpeg` for URL brevity) |
+| `Webp` | `.webp` |
+
+The `content_type` column stores the canonical MIME (`image/png`, `image/jpeg`, `image/webp`).
+
 ## 7. Frontend Integration
 
 ### 7.1 Existing State
@@ -264,6 +325,10 @@ function teardownGallery() {
 
 When a user-uploaded slide is created, `<img src>` is initially empty; `loadUserImageBlob(image.imageUrl)` runs; on resolve, the result is set as `src`. On rejection, slide stays empty (logged to console, doesn't break the rest of the gallery).
 
+**Important:** `imageUrl` for a user image (`/api/me/locations/{locationId}/images/{imageId}`) is a **fetch URL, not a renderable URL**. Wiring it directly to `<img src>` won't work — the auth-streaming endpoint requires the `Authorization` header, which `<img>` doesn't attach. Always go through the `loadUserImageBlob` indirection. Canonical images (`/images/route-1.png`) ARE renderable URLs and bypass the indirection.
+
+The expand modal reuses the slide's blob URL — no separate fetch on click.
+
 ### 7.4 Upload Flow
 
 Triggered by either button click or drag-drop. Both paths converge:
@@ -276,6 +341,8 @@ Triggered by either button click or drag-drop. Both paths converge:
 6. **End-of-batch toast:** counts successes and failure categories. Auto-dismiss after 4 s on full success; persistent until user-dismissed if any failures.
 
 Toast message format: `"3 uploaded · 1 skipped (too large) · 1 skipped (would exceed 20-image limit)"`
+
+**Filename display sanitization:** when surfacing per-file errors in toast/`<img alt>`, truncate `originalFilename` to 80 chars and HTML-escape (DOM `textContent` does this automatically; if interpolating into innerHTML, use a textNode). Exotic Unicode (emoji, RTL) renders fine; control characters are stripped by the browser's text rendering.
 
 ### 7.5 Delete Flow
 
@@ -296,22 +363,24 @@ On the `.image-gallery` element:
 
 ### 8.1 Server Error Codes
 
+Error response body matches the existing project convention: `{ "error": "snake_case_code" }` (consistent with `email_taken`, `unknown_planet`, `invalid_badge` already in use elsewhere).
+
 | Code | Cause | Response body |
 |---|---|---|
-| `400` | File too large (post-multipart-parse), MIME not in allowlist, dimension cap exceeded (>50 MP), pre-decode count cap reached | `{ "error": "<reason>" }` |
-| `404` | Location doesn't exist; image doesn't exist OR isn't owned by current user OR location-id mismatch on DELETE/GET; orphan-on-read (DB row, missing file) | `{ "error": "Not found" }` |
-| `409` | SERIALIZABLE transaction conflict on the in-transaction cap check (race-loser) | `{ "error": "Cap reached, retry" }` |
-| `413` | Request body exceeds `MaxRequestBodySize` (~12 MB) — rejected by ASP.NET pipeline before our controller runs | empty (framework default) |
-| `415` | SkiaSharp can't decode bytes, OR decoded format outside the allowlist (e.g., TIFF mislabeled as PNG) | `{ "error": "Could not decode image" }` |
-| `500` | Disk write failure, DB exception, unexpected error | `{ "error": "Server error" }` (full detail logged server-side, never returned) |
+| `400` | `file_too_large` (post-multipart-parse, > 10 MB) · `unsupported_media_type` (MIME not in allowlist) · `decode_bomb` (decoded dimensions > 50 MP) · `cap_reached` (pre-decode or in-transaction count cap) | `{ "error": "<code>" }` |
+| `404` | `location_not_found` (locationId not in API DB) · `not_found` (image doesn't exist OR isn't owned OR location-id mismatch on DELETE/GET · orphan-on-read where DB row points to missing file) | `{ "error": "<code>" }` |
+| `409` | `serialization_conflict` — SERIALIZABLE conflict still occurred after the controller's one internal retry (vanishingly rare in practice) | `{ "error": "serialization_conflict" }` |
+| `413` | Request body exceeds `MaxRequestBodySize` (12,582,912 bytes / 12 MB) — rejected by ASP.NET pipeline before the controller runs | empty (framework default) |
+| `415` | `decode_failed` — SkiaSharp can't decode bytes, OR decoded format outside the allowlist (e.g., TIFF mislabeled as PNG) | `{ "error": "decode_failed" }` |
+| `500` | Disk write failure, DB exception, unexpected error | `{ "error": "server_error" }` (full detail logged server-side, never returned) |
 
 ### 8.2 Frontend per-File Behavior
 
 - **Success (201):** prepend to `userImages`, re-render.
-- **400, 413, 415:** collect for end-of-batch toast (`"X.png — too large"`, `"Y.png — corrupt"`, etc.).
-- **404 location:** rare in practice; toast says "location not found, refresh the page."
-- **409:** auto-retry once after 100 ms. Second 409 → treat as 400-class, surface in toast. (Genuine cap-reached returns 400, not 409, so no infinite loop.)
-- **500:** log to console, surface generic "server error" message in toast. Continue the batch.
+- **400 / 413 / 415:** collect for end-of-batch toast, mapping the snake_case code to a human message (`file_too_large` → `"X.png — too large"`, `decode_failed` → `"X.png — couldn't read image"`, etc.).
+- **404 (`location_not_found`):** rare in practice; toast says "location not found, refresh the page" and stops further uploads in this batch.
+- **409 (`serialization_conflict`):** server has already retried once internally. Treat as a transient failure surfaced in the toast (`"X.png — temporary conflict, try again"`). Do not retry on the client.
+- **500 (`server_error`):** log to console, surface generic "server error" message in toast. Continue the batch.
 
 ### 8.3 Auth-Stream Fetch Failures (Image Loads)
 
@@ -319,7 +388,19 @@ Image load fetches use `PLAuth.authFetch`, which already handles session-expiry 
 
 ### 8.4 Account Deletion
 
-The existing user-deletion flow needs a small addition: after the DB delete commits and the cascade has nuked all `user_images` rows, the deletion handler enumerates the user's upload directory (`/app/uploads/{userId}/`) and `Directory.Delete(userDir, recursive: true)`. If file deletion fails, log and continue — orphan files but no broken references.
+The existing `DELETE /account` endpoint (`AccountController.Delete` → `userRepository.DeleteAsync(userId)`) handles row cleanup via the `user_id` FK cascade — `user_images` rows go away automatically.
+
+What we need to add: extend `UserRepository.DeleteAsync` (or, if cleaner, the controller action itself) to also remove the user's upload directory after the DB transaction commits:
+
+```csharp
+var userDir = Path.Combine(uploadRoot, userId.ToString());
+if (Directory.Exists(userDir)) {
+    try { Directory.Delete(userDir, recursive: true); }
+    catch (IOException ex) { logger.LogWarning(ex, "Failed to delete upload dir for user {UserId}", userId); }
+}
+```
+
+If file deletion fails, log and continue — DB rows are gone, the orphan files are never referenced and harmless. This addition needs its own test in `UserRepositoryTests` (or `AccountControllerTests`) verifying the directory is removed on account deletion.
 
 ## 9. Testing Strategy
 
@@ -371,7 +452,8 @@ Each phase is independently green-able:
 - `POST` when user already at 20 cap → 400 (pre-decode fail-fast).
 - `POST` with corrupt bytes despite valid MIME → 415.
 - `POST` with image dimensions exceeding 50 MP → 400.
-- `POST` 409-retry: mocked repository returns serialization conflict on first call, succeeds on second → endpoint returns 201 (verifies retry handler in isolation; trust Postgres for actual concurrency).
+- `POST` 409-retry-success: mocked repository throws `PostgresException(SqlState="40001")` on first call, returns Success on second → endpoint returns **201** (verifies the controller's internal retry handler).
+- `POST` 409-retry-still-conflict: mocked repository throws on both calls → endpoint returns **409** + cleanup of file already on disk (verifies retry budget is bounded to one).
 - `DELETE` on owned image → 204; row + file gone afterward.
 - `DELETE` on another user's image → 404.
 - `DELETE` is idempotent (second 404).
@@ -391,7 +473,78 @@ Each phase is independently green-able:
 - **Test fixtures for sample image bytes.** Small valid PNG, JPEG, WebP byte arrays embedded as test resources. Plus crafted "TIFF as PNG", "decode bomb", "corrupt bytes" fixtures.
 - **SkiaSharp container smoke test.** End-to-end POST inside the testcontainer setup catches `SkiaSharp.NativeAssets.Linux` packaging issues at CI time.
 
-## 10. Out of Scope
+## 10. Wiring & Configuration
+
+### 10.1 New DI Registrations (`Program.cs`)
+
+```csharp
+builder.Services.AddSingleton<IUserImageRepository, UserImageRepository>();
+builder.Services.AddSingleton<IImageProcessor, ImageProcessor>();
+
+builder.Services.Configure<UserImagesOptions>(
+    builder.Configuration.GetSection("UserImages"));
+
+builder.Services.Configure<FormOptions>(opts => {
+    opts.MultipartBodyLengthLimit = 12_582_912;
+    opts.MultipartHeadersLengthLimit = 32_768;
+});
+builder.WebHost.ConfigureKestrel(opts => {
+    opts.Limits.MaxRequestBodySize = 12_582_912;
+});
+```
+
+`Singleton` lifetime matches the project's existing pattern for repositories.
+
+### 10.2 New Configuration Keys (`appsettings.json`)
+
+```json
+"UserImages": {
+  "UploadRoot": "/app/uploads",
+  "MaxFilesPerLocation": 20,
+  "MaxBytesPerFile": 10485760,
+  "MaxPixelsPerImage": 50000000,
+  "ResizeLongestEdge": 2000
+}
+```
+
+`UserImagesOptions` POCO binds these. Tests override `UploadRoot` per test to a temp dir; the other values stay as defaults to keep tests aligned with production behavior.
+
+### 10.3 New Files Created
+
+```
+Backend/PokemonLocations.WebServer/
+├── Controllers/UserImagesController.cs            (new)
+├── Database/Migrations/0010_create_user_images_table.sql  (new)
+├── Database/Repositories/IUserImageRepository.cs  (new)
+├── Database/Repositories/UserImageRepository.cs   (new)
+├── Models/UserImage.cs                            (new)
+├── Models/Responses/UploadedImageResponse.cs      (new)
+├── Models/UserImagesOptions.cs                    (new)
+├── Services/IImageProcessor.cs                    (new)
+└── Services/ImageProcessor.cs                     (new)
+```
+
+### 10.4 Files Modified
+
+- `Backend/PokemonLocations.WebServer/Program.cs` — DI + Form/Kestrel limits
+- `Backend/PokemonLocations.WebServer/appsettings.json` — `UserImages` config block
+- `Backend/PokemonLocations.WebServer/Controllers/LocationsController.cs` — populate `userImages` from new repo
+- `Backend/PokemonLocations.WebServer/Database/Repositories/UserRepository.cs` (or `AccountController.Delete`) — disk cleanup on account deletion
+- `Backend/PokemonLocations.WebServer/wwwroot/index.html` — upload button, hidden file input, drag overlay, slide delete button styling
+- `Backend/PokemonLocations.WebServer/wwwroot/script.js` — `renderGallery` upgrades, `loadUserImageBlob`, upload flow, delete flow, drag-drop handlers, blob URL tracking & cleanup
+
+### 10.5 New Tests Created
+
+```
+Backend/PokemonLocations.WebServer.Tests/
+├── Controllers/UserImagesControllerTests.cs       (new)
+├── Database/UserImageRepositoryTests.cs           (new)
+└── Imaging/ImageProcessorTests.cs                 (new)
+```
+
+Plus: existing `LocationsControllerTests.cs` + `UserRepositoryTests.cs` get new test methods (modified, not replaced).
+
+## 11. Out of Scope
 
 - HEIC support (deferred — no native browser support without server-side conversion).
 - Image thumbnails (the carousel renders the resized 2000-px-max image; modal also uses it. Single artifact per upload).

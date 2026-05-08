@@ -216,9 +216,30 @@ function renderGallery(galleryEl, images, locationName) {
             del.className = 'slide-delete';
             del.setAttribute('aria-label', 'Delete image');
             del.textContent = '×';
+
+            let confirmTimer = null;
+            const resetButton = () => {
+                del.classList.remove('confirming');
+                del.textContent = '×';
+                del.setAttribute('aria-label', 'Delete image');
+                if (confirmTimer) { clearTimeout(confirmTimer); confirmTimer = null; }
+            };
+
             del.addEventListener('click', async (e) => {
                 e.stopPropagation();
-                if (!confirm('Delete this image?')) return;
+
+                if (!del.classList.contains('confirming')) {
+                    // First click → enter confirm state
+                    del.classList.add('confirming');
+                    del.textContent = 'Click again to delete';
+                    del.setAttribute('aria-label', 'Click again to confirm delete');
+                    confirmTimer = setTimeout(resetButton, 3000);
+                    return;
+                }
+
+                // Second click → perform delete
+                if (confirmTimer) { clearTimeout(confirmTimer); confirmTimer = null; }
+
                 const res = await PLAuth.authFetch(img.imageUrl, { method: 'DELETE' });
                 if (res.ok) {
                     const idx = currentLocation.userImages.findIndex(u => u.imageId === img.imageId);
@@ -227,8 +248,10 @@ function renderGallery(galleryEl, images, locationName) {
                     showToast('Image deleted');
                 } else {
                     showToast(`Delete failed (${res.status})`, true);
+                    resetButton();
                 }
             });
+
             slide.appendChild(del);
         } else {
             bg.src = img.imageUrl || img.url;

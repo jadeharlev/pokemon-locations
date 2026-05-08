@@ -177,10 +177,17 @@ function renderGallery(galleryEl, images, locationName) {
     }
     resumeCarousel = null;
     revokeAllBlobUrls();
-    galleryEl.replaceChildren();
+    // Remove only dynamic gallery contents (slides, arrows, placeholder text)
+    // while preserving the static upload button, file input, and drag overlay.
+    galleryEl.querySelectorAll('.gallery-slide, .gallery-arrow').forEach(el => el.remove());
+    [...galleryEl.childNodes].forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE) galleryEl.removeChild(n);
+    });
 
     if (images.length === 0) {
-        galleryEl.textContent = 'Image Gallery';
+        // Add placeholder text without nuking the upload button
+        const placeholder = document.createTextNode('Image Gallery');
+        galleryEl.insertBefore(placeholder, galleryEl.firstChild);
         return;
     }
 

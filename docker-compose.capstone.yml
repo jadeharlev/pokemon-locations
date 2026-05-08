@@ -1,2 +1,2 @@
 include:
-  - path: ./external/SE498-Capstone/compose.yaml
+  - ./external/SE498-Capstone/compose.yaml

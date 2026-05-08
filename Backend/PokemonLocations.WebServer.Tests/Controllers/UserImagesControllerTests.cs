@@ -132,4 +132,93 @@ public class UserImagesControllerTests {
         var imageId = Guid.Parse(body.GetProperty("imageId").GetString()!);
         Assert.True(Directory.EnumerateFiles(factory.UploadRoot, $"{imageId}.webp", SearchOption.AllDirectories).Any());
     }
+
+    [Fact]
+    public async Task PostFileLargerThan10MbReturns400FileTooLarge() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var bytes = new byte[11 * 1024 * 1024];
+        new Random(0).NextBytes(bytes);
+        bytes[0] = 0x89; bytes[1] = 0x50; bytes[2] = 0x4E; bytes[3] = 0x47;
+        using var content = MakeMultipart(bytes, "big.png", "image/png");
+
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("file_too_large", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task PostBodyExceedingMaxRequestBodySizeIsRejectedByFramework() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var bytes = new byte[15 * 1024 * 1024];
+        using var content = MakeMultipart(bytes, "huge.png", "image/png");
+
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        // TestServer enforces FormOptions.MultipartBodyLengthLimit → 400
+        // Real Kestrel enforces MaxRequestBodySize → 413
+        // Either proves framework-level rejection before our controller runs.
+        Assert.True(
+            response.StatusCode == HttpStatusCode.BadRequest ||
+            response.StatusCode == HttpStatusCode.RequestEntityTooLarge,
+            $"Expected 400 or 413, got {response.StatusCode}");
+    }
+
+    [Fact]
+    public async Task PostUnsupportedMimeReturns400() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = MakeMultipart(new byte[] { 0x00 }, "x.tiff", "image/tiff");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("unsupported_media_type", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task PostNonExistentLocationReturns404() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
+        apiClient.ExistsAsync(Arg.Any<string>()).Returns(false);
+        var factory = CreateFactory(apiClient);
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = MakeMultipart(ValidPngBytes(), "x.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/999/images", content);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("location_not_found", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task PostWhenAtCapReturns400CapReached() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        for (int i = 0; i < 20; i++) {
+            using var c = MakeMultipart(ValidPngBytes(), $"x{i}.png", "image/png");
+            var r = await client.PostAsync("/api/me/locations/1/images", c);
+            Assert.Equal(HttpStatusCode.Created, r.StatusCode);
+        }
+
+        using var overflow = MakeMultipart(ValidPngBytes(), "overflow.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/1/images", overflow);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("cap_reached", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
 }

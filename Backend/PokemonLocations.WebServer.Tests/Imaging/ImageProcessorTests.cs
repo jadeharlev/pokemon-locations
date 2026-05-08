@@ -72,4 +72,26 @@ public class ImageProcessorTests {
         Assert.Equal(2000, result.Width);
         Assert.Equal(1500, result.Height);
     }
+
+    [Fact]
+    public async Task RejectsUnsupportedFormat() {
+        var input = TestImageFixtures.CreateGif();
+        await Assert.ThrowsAsync<UnsupportedFormatException>(
+            () => processor.ProcessAsync(new MemoryStream(input), default));
+    }
+
+    [Fact]
+    public async Task RejectsDecodeBombByPixelCount() {
+        // 8000x8000 = 64 MP, exceeds 50 MP cap. Pattern compresses to small file.
+        var input = TestImageFixtures.CreatePng(8000, 8000);
+        await Assert.ThrowsAsync<DecodeBombException>(
+            () => processor.ProcessAsync(new MemoryStream(input), default));
+    }
+
+    [Fact]
+    public async Task RejectsCorruptBytes() {
+        var input = TestImageFixtures.CreateCorruptBytes();
+        await Assert.ThrowsAsync<DecodeFailedException>(
+            () => processor.ProcessAsync(new MemoryStream(input), default));
+    }
 }

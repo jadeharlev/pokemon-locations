@@ -32,4 +32,12 @@ public static class TestHelpers {
         await connection.OpenAsync();
         await connection.ExecuteAsync("DELETE FROM users");
     }
+
+    public static async Task<int> GetUserIdAsync(string connectionString, string email) {
+        await using var connection = new NpgsqlConnection(connectionString);
+        await connection.OpenAsync();
+        return await connection.ExecuteScalarAsync<int>(
+            "SELECT user_id FROM users WHERE email = @Email",
+            new { Email = email });
+    }
 }

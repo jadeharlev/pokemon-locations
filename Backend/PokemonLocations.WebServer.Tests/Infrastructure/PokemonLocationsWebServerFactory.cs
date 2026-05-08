@@ -5,6 +5,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PokemonLocations.WebServer.Clients;
+using PokemonLocations.WebServer.Database.Repositories;
 
 namespace PokemonLocations.WebServer.Tests.Infrastructure;
 
@@ -15,6 +16,7 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
 
     public IPokemonLocationsApiClient? ApiClient { get; init; }
     public IStarTrekWeatherApiClient? WeatherClient { get; init; }
+    public IUserImageRepository? UserImageRepositoryOverride { get; set; }
 
     public string UploadRoot { get; } = Path.Combine(
         Path.GetTempPath(),
@@ -49,6 +51,12 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
                 services.AddSingleton(WeatherClient);
             });
         }
+        builder.ConfigureTestServices(services => {
+            if (UserImageRepositoryOverride is not null) {
+                services.RemoveAll(typeof(IUserImageRepository));
+                services.AddSingleton(UserImageRepositoryOverride);
+            }
+        });
     }
 
     protected override void Dispose(bool disposing) {

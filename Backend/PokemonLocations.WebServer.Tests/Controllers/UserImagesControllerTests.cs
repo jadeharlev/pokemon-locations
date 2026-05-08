@@ -1,6 +1,8 @@
 using System.Net;
 using NSubstitute;
 using PokemonLocations.WebServer.Clients;
+using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Models;
 using PokemonLocations.WebServer.Tests.Infrastructure;
 using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
@@ -251,5 +253,60 @@ public class UserImagesControllerTests {
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("decode_bomb", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task PostFirstConflictThenSuccessReturns201() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+
+        var mockRepo = Substitute.For<IUserImageRepository>();
+        mockRepo.CountForUserAndLocationAsync(Arg.Any<int>(), Arg.Any<int>()).Returns(0);
+        var callCount = 0;
+        mockRepo.AddAsync(Arg.Any<UserImage>(), Arg.Any<int>())
+            .Returns(_ => {
+                callCount++;
+                if (callCount == 1) {
+                    throw new Npgsql.PostgresException("conflict", "ERROR", "ERROR", "40001");
+                }
+                return AddResult.Success;
+            });
+
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        factory.UserImageRepositoryOverride = mockRepo;
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        await mockRepo.Received(2).AddAsync(Arg.Any<UserImage>(), Arg.Any<int>());
+    }
+
+    [Fact]
+    public async Task PostBothAttemptsConflictReturns409AndCleansFile() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+
+        var mockRepo = Substitute.For<IUserImageRepository>();
+        mockRepo.CountForUserAndLocationAsync(Arg.Any<int>(), Arg.Any<int>()).Returns(0);
+        mockRepo.When(r => r.AddAsync(Arg.Any<UserImage>(), Arg.Any<int>()))
+            .Do(_ => throw new Npgsql.PostgresException("conflict", "ERROR", "ERROR", "40001"));
+
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        factory.UserImageRepositoryOverride = mockRepo;
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        Assert.Equal("serialization_conflict",
+            (await ReadJsonAsync(response)).GetProperty("error").GetString());
+        await mockRepo.Received(2).AddAsync(Arg.Any<UserImage>(), Arg.Any<int>());
+
+        var userId = await GetUserIdAsync(postgresFixture.ConnectionString, "red@example.com");
+        var userDir = Path.Combine(factory.UploadRoot, userId.ToString());
+        Assert.False(Directory.Exists(userDir) && Directory.EnumerateFiles(userDir).Any());
     }
 }

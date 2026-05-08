@@ -25,6 +25,67 @@
       background: #FAFAFA;
     }
 
+    .theme-option.theme-locked {
+      opacity: 0.55;
+      cursor: not-allowed;
+      background-color: #eee;
+      border-color: var(--theme-border);
+      color: var(--theme-muted);
+    }
+
+    .theme-option.theme-locked::after {
+      content: " 🔒";
+    }
+
+    .theme-unlock-message {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      color: var(--theme-primary-dark);
+      border: 2px solid var(--theme-primary);
+      border-radius: 14px;
+      padding: 14px 24px;
+      font-weight: 700;
+      font-size: 20px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      z-index: 2000;
+    }
+
+    .confetti-container {
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      overflow: hidden;
+      z-index: 1999;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      top: -20px;
+      width: 10px;
+      height: 16px;
+      background: var(--theme-primary);
+      animation: confetti-fall 2.4s linear forwards;
+    }
+
+    .confetti-piece:nth-child(3n) {
+      background: var(--theme-primary-light);
+    }
+
+    .confetti-piece:nth-child(4n) {
+      background: var(--theme-primary-dark);
+    }
+
+    @keyframes confetti-fall {
+      to {
+        top: 100vh;
+        transform: translateY(40px) rotate(720deg);
+        opacity: 0;
+      }
+    }
+
     /* ── Top bar ── */
     .top-bar {
       position: relative;

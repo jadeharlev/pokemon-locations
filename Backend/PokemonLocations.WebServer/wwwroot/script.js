@@ -914,6 +914,29 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
+    const galleryEl = document.getElementById('image-gallery');
+    let dragLeaveTimeout = null;
+
+    if (galleryEl) {
+        galleryEl.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            galleryEl.classList.add('drag-active');
+            if (dragLeaveTimeout) { clearTimeout(dragLeaveTimeout); dragLeaveTimeout = null; }
+        });
+        galleryEl.addEventListener('dragover', (e) => e.preventDefault());
+        galleryEl.addEventListener('dragleave', () => {
+            if (dragLeaveTimeout) clearTimeout(dragLeaveTimeout);
+            dragLeaveTimeout = setTimeout(() => galleryEl.classList.remove('drag-active'), 60);
+        });
+        galleryEl.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            galleryEl.classList.remove('drag-active');
+            if (e.dataTransfer.files.length > 0) {
+                await uploadFiles(e.dataTransfer.files);
+            }
+        });
+    }
+
     startWeatherTicker();
 
     // Load all data in parallel where possible

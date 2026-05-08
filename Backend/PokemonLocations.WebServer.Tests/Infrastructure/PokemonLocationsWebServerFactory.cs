@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using PokemonLocations.WebServer.Clients;
@@ -15,6 +16,11 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
     public IPokemonLocationsApiClient? ApiClient { get; init; }
     public IStarTrekWeatherApiClient? WeatherClient { get; init; }
 
+    public string UploadRoot { get; } = Path.Combine(
+        Path.GetTempPath(),
+        "pokemon-locations-tests",
+        Guid.NewGuid().ToString());
+
     public PokemonLocationsWebServerFactory(string postgresConnectionString, string redisConnectionString) {
         Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", postgresConnectionString);
         Environment.SetEnvironmentVariable("ConnectionStrings__Redis", redisConnectionString);
@@ -26,6 +32,11 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseEnvironment("Development");
+        builder.ConfigureAppConfiguration((_, config) => {
+            config.AddInMemoryCollection(new Dictionary<string, string?> {
+                ["UserImages:UploadRoot"] = UploadRoot
+            });
+        });
         if (ApiClient is not null) {
             builder.ConfigureTestServices(services => {
                 services.RemoveAll<IPokemonLocationsApiClient>();
@@ -37,6 +48,13 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
                 services.RemoveAll<IStarTrekWeatherApiClient>();
                 services.AddSingleton(WeatherClient);
             });
+        }
+    }
+
+    protected override void Dispose(bool disposing) {
+        base.Dispose(disposing);
+        if (disposing && Directory.Exists(UploadRoot)) {
+            try { Directory.Delete(UploadRoot, recursive: true); } catch { /* swallow */ }
         }
     }
 }

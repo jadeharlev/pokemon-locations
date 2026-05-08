@@ -98,4 +98,38 @@ public class UserImagesControllerTests {
         Assert.True(Directory.EnumerateFiles(factory.UploadRoot, "*", SearchOption.AllDirectories)
                              .Any(p => p.EndsWith($"{imageId}.png")));
     }
+
+    [Fact]
+    public async Task PostValidJpegReturns201WithJpgExtension() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var bytes = PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreateJpeg(64, 64);
+        using var content = MakeMultipart(bytes, "shot.jpg", "image/jpeg");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        var imageId = Guid.Parse(body.GetProperty("imageId").GetString()!);
+        Assert.True(Directory.EnumerateFiles(factory.UploadRoot, $"{imageId}.jpg", SearchOption.AllDirectories).Any());
+    }
+
+    [Fact]
+    public async Task PostValidWebpReturns201WithWebpExtension() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var bytes = PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreateWebp(64, 64);
+        using var content = MakeMultipart(bytes, "shot.webp", "image/webp");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var body = await ReadJsonAsync(response);
+        var imageId = Guid.Parse(body.GetProperty("imageId").GetString()!);
+        Assert.True(Directory.EnumerateFiles(factory.UploadRoot, $"{imageId}.webp", SearchOption.AllDirectories).Any());
+    }
 }

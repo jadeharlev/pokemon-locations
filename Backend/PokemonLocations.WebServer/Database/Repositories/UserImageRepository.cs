@@ -57,8 +57,23 @@ public class UserImageRepository : IUserImageRepository {
             new { UserId = userId, ImageId = imageId });
     }
 
-    public Task<IReadOnlyList<UserImage>> GetForUserAndLocationAsync(int userId, int locationId) =>
-        throw new NotImplementedException();
+    public async Task<IReadOnlyList<UserImage>> GetForUserAndLocationAsync(int userId, int locationId) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        var rows = await connection.QueryAsync<UserImage>(
+            @"SELECT image_id          AS ""ImageId"",
+                     user_id           AS ""UserId"",
+                     location_id       AS ""LocationId"",
+                     file_path         AS ""FilePath"",
+                     original_filename AS ""OriginalFilename"",
+                     content_type      AS ""ContentType"",
+                     byte_size         AS ""ByteSize"",
+                     uploaded_at       AS ""UploadedAt""
+                FROM user_images
+               WHERE user_id = @UserId AND location_id = @LocationId
+               ORDER BY uploaded_at DESC",
+            new { UserId = userId, LocationId = locationId });
+        return rows.ToList();
+    }
     public Task RemoveAsync(int userId, Guid imageId) =>
         throw new NotImplementedException();
     public Task<int> CountForUserAndLocationAsync(int userId, int locationId) =>

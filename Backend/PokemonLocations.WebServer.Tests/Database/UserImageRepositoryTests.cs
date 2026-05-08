@@ -64,4 +64,50 @@ public class UserImageRepositoryTests {
         Assert.Equal(image.ByteSize, loaded.ByteSize);
         Assert.Equal(image.FilePath, loaded.FilePath);
     }
+
+    [Fact]
+    public async Task GetForUserAndLocationAsyncReturnsImagesNewestFirst() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        var older = MakeImage(userId, 1) with { UploadedAt = DateTime.UtcNow.AddMinutes(-5) };
+        var newer = MakeImage(userId, 1) with { UploadedAt = DateTime.UtcNow };
+        await repository.AddAsync(older, 20);
+        await repository.AddAsync(newer, 20);
+
+        var images = await repository.GetForUserAndLocationAsync(userId, 1);
+
+        Assert.Equal(2, images.Count);
+        Assert.Equal(newer.ImageId, images[0].ImageId);
+        Assert.Equal(older.ImageId, images[1].ImageId);
+    }
+
+    [Fact]
+    public async Task GetForUserAndLocationAsyncIsScopedToLocation() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        await repository.AddAsync(MakeImage(userId, 1), 20);
+        await repository.AddAsync(MakeImage(userId, 2), 20);
+
+        var loc1 = await repository.GetForUserAndLocationAsync(userId, 1);
+
+        Assert.Single(loc1);
+        Assert.Equal(1, loc1[0].LocationId);
+    }
+
+    [Fact]
+    public async Task GetForUserAndLocationAsyncDoesNotReturnAnotherUsersImages() {
+        await ResetAsync();
+        var redId = await SeedUserAsync("red@example.com");
+        var blueId = await SeedUserAsync("blue@example.com");
+        var repository = CreateRepository();
+        await repository.AddAsync(MakeImage(redId, 1), 20);
+        await repository.AddAsync(MakeImage(blueId, 1), 20);
+
+        var redImages = await repository.GetForUserAndLocationAsync(redId, 1);
+
+        Assert.Single(redImages);
+        Assert.Equal(redId, redImages[0].UserId);
+    }
 }

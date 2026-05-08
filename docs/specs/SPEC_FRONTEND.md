@@ -55,7 +55,7 @@ The application's primary view, behind Basic Auth. Uses `script.js` to render an
 
 **Sections (inline within the page):**
 - **Locations list** — populated from `GET /api/locations`; clicking a location loads its detail.
-- **Location detail** — name, description, image gallery, embedded video (if `videoUrl` present), and a buildings list. Populated from `GET /api/locations/{id}` plus `GET /api/locations/{id}/buildings`. The image gallery renders the canonical `images` array as a fixed-aspect carousel (cover-fit, themed prev/next arrows, 5 s auto-advance when more than one image, paused while the modal is open). Clicking any slide opens a full-size modal viewer; close via the X button, clicking the overlay, or pressing Escape. When the user-image upload feature ships (SE498-68), uploaded images will appear in the same carousel after the canonical covers.
+- **Location detail** — name, description, image gallery, embedded video (if `videoUrl` present), and a buildings list. Populated from `GET /api/locations/{id}` plus `GET /api/locations/{id}/buildings`. The image gallery renders the canonical `images` array as a fixed-aspect carousel (cover-fit, themed prev/next arrows, 5 s auto-advance when more than one image, paused while the modal is open). Clicking any slide opens a full-size modal viewer; close via the X button, clicking the overlay, or pressing Escape. The gallery also supports per-user image uploads (SE498-68): a "+" button overlays the gallery (themed primary-dark), drag-drop on the gallery box also uploads. Multi-file selection is supported. Each user-uploaded slide gets a hover-revealed "X" to delete it (with confirmation). User images are loaded via authenticated `fetch` and rendered through `URL.createObjectURL` blob URLs — they never appear in `<img src>` directly because Basic Auth credentials don't auto-attach to image requests. Per-user, per-location cap is 20 images; the upload button disables at the cap. Cover images from SE498-14 stay public/static and bypass the blob indirection.
 - **Building tracking** — clicking a building toggles its visited status via `PUT`/`DELETE /api/me/visited/buildings/{locationId}/{buildingId}`. Building visited status is read from the merged proxy response.
 - **Visited progress** — a header strip that summarizes visited buildings per location ("3/5 Visited" / "All Locations Visited" / etc.).
 - **Badges** — read via `GET /api/me/badges`, toggled per-badge with `PUT`/`DELETE /api/me/badges/{badge}`.
@@ -203,7 +203,6 @@ Inter is loaded from Google Fonts on each page.
 ## 8. Future Considerations
 
 - Standalone pages for locations / buildings / gyms (currently consolidated into the SPA-style `index.html`)
-- User-uploaded images per location (SE498-68 — schema and endpoints not yet shipped)
 - Persistent login across tab close (`localStorage` instead of `sessionStorage`)
 - Loading indicators while fetches are in progress
 - Search across locations / buildings / gyms

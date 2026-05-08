@@ -1,10 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database;
 using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Models;
+using PokemonLocations.WebServer.Services;
 using idunno.Authentication.Basic;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +31,19 @@ builder.Services.AddSingleton<IUserRepository, UserRepository>();
 builder.Services.AddSingleton<IBadgeRepository, BadgeRepository>();
 builder.Services.AddSingleton<IVisitedBuildingRepository, VisitedBuildingRepository>();
 builder.Services.AddSingleton<IUserNoteRepository, UserNoteRepository>();
+builder.Services.AddSingleton<IUserImageRepository, UserImageRepository>();
+builder.Services.AddSingleton<IImageProcessor, ImageProcessor>();
+builder.Services.Configure<UserImagesOptions>(
+    builder.Configuration.GetSection("UserImages"));
+
+builder.Services.Configure<FormOptions>(opts => {
+    opts.MultipartBodyLengthLimit = 12_582_912;
+    opts.MultipartHeadersLengthLimit = 32_768;
+});
+builder.WebHost.ConfigureKestrel(opts => {
+    opts.Limits.MaxRequestBodySize = 12_582_912;
+});
+
 builder.Services.AddSingleton<PasswordHasher>();
 builder.Services.AddSingleton<BasicAuthCredentialValidator>();
 

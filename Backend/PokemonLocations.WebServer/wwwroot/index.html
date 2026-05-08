@@ -361,6 +361,97 @@
       cursor: zoom-in;
     }
 
+    .gallery-upload {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid var(--theme-primary);
+      background: var(--theme-primary-dark);
+      color: white;
+      font-size: 28px;
+      font-weight: 600;
+      cursor: pointer;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .gallery-upload:hover { transform: scale(1.05); }
+    .gallery-upload:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .gallery-drag-overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.6);
+      color: white;
+      font-size: 18px;
+      font-weight: 600;
+      border: 4px dashed white;
+      z-index: 20;
+      pointer-events: none;
+    }
+    .image-gallery.drag-active .gallery-drag-overlay { display: flex; }
+
+    .slide-delete {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: none;
+      background: var(--theme-danger);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      opacity: 0;
+      transition: opacity 0.15s, width 0.2s, min-width 0.2s, border-radius 0.2s, padding 0.2s;
+      z-index: 5;
+    }
+    .gallery-slide:hover .slide-delete { opacity: 1; }
+
+    .slide-delete.confirming {
+      width: auto;
+      min-width: 140px;
+      padding: 0 14px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .gallery-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--theme-primary-dark);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      z-index: 1100;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+    .gallery-toast button {
+      background: transparent;
+      border: 1px solid white;
+      color: white;
+      border-radius: 4px;
+      padding: 4px 8px;
+      cursor: pointer;
+    }
+
     .gallery-modal {
       position: fixed;
       inset: 0;
@@ -690,7 +781,11 @@
         </div>
    	<div class="location-status" id="location-status"></div>
         <div class="location-description" id="location-description"></div>
-        <div class="image-gallery" id="image-gallery">Image Gallery</div>
+        <div class="image-gallery" id="image-gallery">Image Gallery
+          <button type="button" class="gallery-upload" id="gallery-upload" aria-label="Upload images">+</button>
+          <input type="file" class="gallery-file-input" id="gallery-file-input" multiple accept="image/png,image/jpeg,image/webp" style="display: none;">
+          <div class="gallery-drag-overlay" id="gallery-drag-overlay" aria-hidden="true">Drop to upload</div>
+        </div>
 
         <textarea class="notes-area" id="notes-area" placeholder="Add your notes..."></textarea>
         <div class="notes-saved" id="notes-saved">Notes saved</div>

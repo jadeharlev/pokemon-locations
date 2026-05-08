@@ -68,7 +68,7 @@ All require Basic Auth. Responses are proxied from the API with per-user state m
 | Method | Path | Merging |
 |--------|------|---------|
 | `GET` | `/api/locations` | Adds `visited: bool` per location |
-| `GET` | `/api/locations/{id}` | Adds `visited: bool` + `userImages: []`. The canonical `images` array from the API is passed through unchanged. |
+| `GET` | `/api/locations/{id}` | Adds `visited: bool` + `userImages: [...]` (populated from the `user_images` table, newest-first). The canonical `images` array from the API is passed through unchanged. |
 | `GET` | `/api/locations/{locationId}/buildings` | Adds `visited: bool` per building |
 | `GET` | `/api/locations/{locationId}/buildings/{buildingId}` | Pure proxy (no merging) |
 | `GET` | `/api/gyms` | Pure proxy (no merging) |
@@ -91,6 +91,9 @@ All require Basic Auth.
 | `GET` | `/api/me/notes/{locationId}` | Get note → `200` or `404` |
 | `PUT` | `/api/me/notes/{locationId}` | Upsert note → `204` |
 | `DELETE` | `/api/me/notes/{locationId}` | Delete note → `204` |
+| `POST` | `/api/me/locations/{id}/images` | New endpoint: multipart upload, server resizes via SkiaSharp, stores in `webserver_uploads` volume + `user_images` table |
+| `DELETE` | `/api/me/locations/{id}/images/{imageId}` | New endpoint: removes user's row + file |
+| `GET` | `/api/me/locations/{id}/images/{imageId}` | New endpoint: auth-streamed image bytes (Basic Auth required) |
 | `GET` | `/api/me/stats` | `{ gymsComplete, locationsVisited, buildingsVisited }` |
 
 ### 3.6 Validation

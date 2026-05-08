@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Models;
 using PokemonLocations.WebServer.Models.Requests;
 using PokemonLocations.WebServer.Models.Responses;
 
@@ -44,8 +46,17 @@ public class AccountController : ControllerBase {
     }
 
     [HttpDelete("/account")]
-    public async Task<IActionResult> Delete() {
-        await userRepository.DeleteAsync(User.GetUserId());
+    public async Task<IActionResult> Delete(
+        IOptions<UserImagesOptions> options,
+        ILogger<AccountController> logger) {
+        var userId = User.GetUserId();
+        await userRepository.DeleteAsync(userId);
+
+        var userDir = Path.Combine(options.Value.UploadRoot, userId.ToString());
+        if (Directory.Exists(userDir)) {
+            try { Directory.Delete(userDir, recursive: true); }
+            catch (IOException ex) { logger.LogWarning(ex, "Failed to delete upload dir for user {UserId}", userId); }
+        }
         return NoContent();
     }
 

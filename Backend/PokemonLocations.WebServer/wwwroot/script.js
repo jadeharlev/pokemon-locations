@@ -7,10 +7,121 @@ let selectedLocationId = null;
 let currentBadges = new Set();
 let noteDebounceTimer = null;
 let galleryTimer = null;
+let currentLocation = null; // { locationId, name, images, userImages, ... }
+
+function rerenderGallery() {
+    if (!currentLocation) return;
+    const galleryEl = document.getElementById('image-gallery');
+    const merged = [
+        ...(currentLocation.images || []).map(img => ({ ...img, isUserImage: false })),
+        ...(currentLocation.userImages || []).map(img => ({ ...img, isUserImage: true }))
+    ];
+    renderGallery(galleryEl, merged, currentLocation.name);
+    updateUploadButtonState();
+}
+
+function updateUploadButtonState() {
+    const btn = document.getElementById('gallery-upload');
+    if (!btn || !currentLocation) return;
+    const count = (currentLocation.userImages || []).length;
+    btn.disabled = count >= 20;
+    btn.title = btn.disabled ? '20-image limit reached' : 'Upload images';
+}
+
+function showToast(message, persistent = false) {
+    let toast = document.getElementById('gallery-toast');
+    if (toast) toast.remove();
+    toast = document.createElement('div');
+    toast.id = 'gallery-toast';
+    toast.className = 'gallery-toast';
+    const text = document.createElement('span');
+    text.textContent = message;
+    toast.appendChild(text);
+    if (persistent) {
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.addEventListener('click', () => toast.remove());
+        toast.appendChild(close);
+    } else {
+        setTimeout(() => toast.remove(), 4000);
+    }
+    document.body.appendChild(toast);
+}
 
 // ─── Gallery carousel + modal ───
 const GALLERY_INTERVAL_MS = 5000;
 let resumeCarousel = null;
+
+let activeBlobUrls = [];
+
+async function loadUserImageBlob(imageUrl) {
+    const res = await PLAuth.authFetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    activeBlobUrls.push(blobUrl);
+    return blobUrl;
+}
+
+function revokeAllBlobUrls() {
+    activeBlobUrls.forEach(URL.revokeObjectURL);
+    activeBlobUrls = [];
+}
+
+const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_BYTES = 10 * 1024 * 1024;
+const CAP_PER_LOCATION = 20;
+
+async function uploadFiles(fileList) {
+    if (!currentLocation) return;
+    const files = Array.from(fileList);
+    const rejected = [];
+    const accepted = [];
+
+    for (const f of files) {
+        if (!ALLOWED_MIMES.includes(f.type)) {
+            rejected.push({ name: f.name, reason: 'unsupported type' });
+            continue;
+        }
+        if (f.size > MAX_BYTES) {
+            rejected.push({ name: f.name, reason: 'too large' });
+            continue;
+        }
+        accepted.push(f);
+    }
+
+    const remaining = CAP_PER_LOCATION - (currentLocation.userImages || []).length;
+    const toUpload = accepted.slice(0, Math.max(0, remaining));
+    const overflow = accepted.slice(Math.max(0, remaining));
+    overflow.forEach(f => rejected.push({ name: f.name, reason: 'over cap' }));
+
+    let succeeded = 0;
+    const failed = [];
+    for (const f of toUpload) {
+        const fd = new FormData();
+        fd.append('file', f, f.name);
+        const url = `/api/me/locations/${currentLocation.locationId}/images`;
+        const res = await PLAuth.authFetch(url, { method: 'POST', body: fd });
+        if (res.ok) {
+            const body = await res.json();
+            currentLocation.userImages = [body, ...(currentLocation.userImages || [])];
+            succeeded++;
+        } else {
+            let code = `${res.status}`;
+            try { code = (await res.json()).error || code; } catch { /* not JSON */ }
+            failed.push({ name: f.name, reason: code });
+        }
+    }
+
+    rerenderGallery();
+
+    const parts = [];
+    if (succeeded) parts.push(`${succeeded} uploaded`);
+    rejected.forEach(r => parts.push(`${r.name} skipped (${r.reason})`));
+    failed.forEach(f => parts.push(`${f.name} failed (${f.reason})`));
+    showToast(parts.join(' · '), failed.length > 0 || rejected.length > 0);
+}
 
 function openGalleryModal(src, caption) {
     const modal = document.getElementById('gallery-modal');
@@ -65,10 +176,18 @@ function renderGallery(galleryEl, images, locationName) {
         galleryTimer = null;
     }
     resumeCarousel = null;
-    galleryEl.replaceChildren();
+    revokeAllBlobUrls();
+    // Remove only dynamic gallery contents (slides, arrows, placeholder text)
+    // while preserving the static upload button, file input, and drag overlay.
+    galleryEl.querySelectorAll('.gallery-slide, .gallery-arrow').forEach(el => el.remove());
+    [...galleryEl.childNodes].forEach(n => {
+        if (n.nodeType === Node.TEXT_NODE) galleryEl.removeChild(n);
+    });
 
     if (images.length === 0) {
-        galleryEl.textContent = 'Image Gallery';
+        // Add placeholder text without nuking the upload button
+        const placeholder = document.createTextNode('Image Gallery');
+        galleryEl.insertBefore(placeholder, galleryEl.firstChild);
         return;
     }
 
@@ -78,15 +197,66 @@ function renderGallery(galleryEl, images, locationName) {
 
         const bg = document.createElement('img');
         bg.className = 'slide-bg';
-        bg.src = img.imageUrl || img.url;
         bg.alt = '';
         bg.setAttribute('aria-hidden', 'true');
 
         const fg = document.createElement('img');
         fg.className = 'slide-fg';
-        fg.src = img.imageUrl || img.url;
         fg.alt = img.caption || locationName || '';
         fg.addEventListener('click', () => openGalleryModal(fg.src, img.caption || locationName || ''));
+
+        if (img.isUserImage) {
+            loadUserImageBlob(img.imageUrl).then(blobUrl => {
+                bg.src = blobUrl;
+                fg.src = blobUrl;
+            }).catch(err => console.error('User image fetch failed:', err));
+
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'slide-delete';
+            del.setAttribute('aria-label', 'Delete image');
+            del.textContent = '×';
+
+            let confirmTimer = null;
+            const resetButton = () => {
+                del.classList.remove('confirming');
+                del.textContent = '×';
+                del.setAttribute('aria-label', 'Delete image');
+                if (confirmTimer) { clearTimeout(confirmTimer); confirmTimer = null; }
+            };
+
+            del.addEventListener('click', async (e) => {
+                e.stopPropagation();
+
+                if (!del.classList.contains('confirming')) {
+                    // First click → enter confirm state
+                    del.classList.add('confirming');
+                    del.textContent = 'Click again to delete';
+                    del.setAttribute('aria-label', 'Click again to confirm delete');
+                    confirmTimer = setTimeout(resetButton, 3000);
+                    return;
+                }
+
+                // Second click → perform delete
+                if (confirmTimer) { clearTimeout(confirmTimer); confirmTimer = null; }
+
+                const res = await PLAuth.authFetch(img.imageUrl, { method: 'DELETE' });
+                if (res.ok) {
+                    const idx = currentLocation.userImages.findIndex(u => u.imageId === img.imageId);
+                    if (idx >= 0) currentLocation.userImages.splice(idx, 1);
+                    rerenderGallery();
+                    showToast('Image deleted');
+                } else {
+                    showToast(`Delete failed (${res.status})`, true);
+                    resetButton();
+                }
+            });
+
+            slide.appendChild(del);
+        } else {
+            bg.src = img.imageUrl || img.url;
+            fg.src = img.imageUrl || img.url;
+        }
 
         slide.append(bg, fg);
         galleryEl.appendChild(slide);
@@ -307,14 +477,16 @@ async function loadLocationDetail(locationId) {
         }
 
         const location = await res.json();
+        currentLocation = location;
         descEl.textContent = location.description || '';
 
         // Image gallery
-        const images = [
-            ...(location.images || []),
-            ...(location.userImages || [])
+        const merged = [
+            ...(location.images || []).map(img => ({ ...img, isUserImage: false })),
+            ...(location.userImages || []).map(img => ({ ...img, isUserImage: true }))
         ];
-        renderGallery(galleryEl, images, location.name);
+        renderGallery(galleryEl, merged, location.name);
+        updateUploadButtonState();
 
         // Status is computed after buildings load — see updateLocationStatus()
     } catch (e) {
@@ -941,6 +1113,41 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupNotesAutoSave();
     setupActions();
+
+    const uploadBtn = document.getElementById('gallery-upload');
+    const fileInput = document.getElementById('gallery-file-input');
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                await uploadFiles(e.target.files);
+                e.target.value = '';
+            }
+        });
+    }
+
+    const galleryEl = document.getElementById('image-gallery');
+    let dragLeaveTimeout = null;
+
+    if (galleryEl) {
+        galleryEl.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            galleryEl.classList.add('drag-active');
+            if (dragLeaveTimeout) { clearTimeout(dragLeaveTimeout); dragLeaveTimeout = null; }
+        });
+        galleryEl.addEventListener('dragover', (e) => e.preventDefault());
+        galleryEl.addEventListener('dragleave', () => {
+            if (dragLeaveTimeout) clearTimeout(dragLeaveTimeout);
+            dragLeaveTimeout = setTimeout(() => galleryEl.classList.remove('drag-active'), 60);
+        });
+        galleryEl.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            galleryEl.classList.remove('drag-active');
+            if (e.dataTransfer.files.length > 0) {
+                await uploadFiles(e.dataTransfer.files);
+            }
+        });
+    }
 
     startWeatherTicker();
 

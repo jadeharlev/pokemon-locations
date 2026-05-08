@@ -139,7 +139,7 @@ public class LocationsControllerTests {
     }
 
     [Fact]
-    public async Task GetByIdIncludesEmptyUserImages() {
+    public async Task GetByIdReturnsEmptyUserImagesForNewUser() {
         await ResetUsersAsync(postgresFixture.ConnectionString);
         await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
@@ -148,6 +148,53 @@ public class LocationsControllerTests {
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
         var response = await client.GetAsync("/api/locations/1");
+        var body = await ReadJsonAsync(response);
+
+        Assert.Equal(0, body.GetProperty("userImages").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task GetByIdIncludesUploadedUserImages() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = CreateApiClient();
+        apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
+        var factory = CreateFactory(apiClient);
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = new MultipartFormDataContent();
+        var fc = new ByteArrayContent(PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreatePng(64, 64));
+        fc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        content.Add(fc, "file", "shot.png");
+        await client.PostAsync("/api/me/locations/1/images", content);
+
+        var response = await client.GetAsync("/api/locations/1");
+        var body = await ReadJsonAsync(response);
+        var ui = body.GetProperty("userImages");
+
+        Assert.Equal(1, ui.GetArrayLength());
+        Assert.Equal("shot.png", ui[0].GetProperty("originalFilename").GetString());
+        Assert.StartsWith("/api/me/locations/1/images/", ui[0].GetProperty("imageUrl").GetString());
+    }
+
+    [Fact]
+    public async Task GetByIdDoesNotLeakAnotherUsersImages() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        var apiClient = CreateApiClient();
+        apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
+        var factory = CreateFactory(apiClient);
+
+        var blueClient = AuthorizedClient(factory, "blue@example.com", "squirtle1");
+        using var content = new MultipartFormDataContent();
+        var fc = new ByteArrayContent(PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreatePng(64, 64));
+        fc.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+        content.Add(fc, "file", "blueshot.png");
+        await blueClient.PostAsync("/api/me/locations/1/images", content);
+
+        var redClient = AuthorizedClient(factory, "red@example.com", "pikachu123");
+        var response = await redClient.GetAsync("/api/locations/1");
         var body = await ReadJsonAsync(response);
 
         Assert.Equal(0, body.GetProperty("userImages").GetArrayLength());

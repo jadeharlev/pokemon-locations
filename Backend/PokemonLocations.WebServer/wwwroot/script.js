@@ -1131,7 +1131,7 @@ function setupActions() {
                 weatherState.homePlanetName = previousName;
                 weatherState.homePlanetTemp = previousTemp;
                 renderCurrentLocation();
-                alert('Failed to set location.');
+                await showAlert('Failed to set location.', { title: 'Error' });
                 return;
             }
             locationModal.hide();
@@ -1140,7 +1140,7 @@ function setupActions() {
             weatherState.homePlanetTemp = previousTemp;
             renderCurrentLocation();
             console.error('Set location failed:', e.message);
-            alert('Failed to set location.');
+            await showAlert('Failed to set location.', { title: 'Error' });
         }
     });
 

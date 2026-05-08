@@ -110,8 +110,16 @@ public class UserImagesController : ControllerBase {
     }
 
     [HttpDelete("{imageId:guid}")]
-    public Task<IActionResult> Delete(int locationId, Guid imageId) =>
-        throw new NotImplementedException();
+    public async Task<IActionResult> Delete(int locationId, Guid imageId) {
+        var userId = User.GetUserId();
+        var image = await repository.GetByIdForUserAsync(userId, imageId);
+        if (image is null || image.LocationId != locationId) {
+            return NotFound(new { error = "not_found" });
+        }
+        await repository.RemoveAsync(userId, imageId);
+        DeleteSilently(image.FilePath);
+        return NoContent();
+    }
 
     [HttpGet("{imageId:guid}")]
     public Task<IActionResult> Get(int locationId, Guid imageId) =>

@@ -36,4 +36,40 @@ public class ImageProcessorTests {
         Assert.Equal(300, result.Width);
         Assert.Equal(200, result.Height);
     }
+
+    [Fact]
+    public async Task ResizesLandscapeOversizedImageToLongestEdge2000() {
+        var input = TestImageFixtures.CreatePng(4000, 3000);
+        var result = await processor.ProcessAsync(new MemoryStream(input), default);
+
+        Assert.Equal(2000, result.Width);
+        Assert.Equal(1500, result.Height);
+    }
+
+    [Fact]
+    public async Task ResizesPortraitOversizedImageHeightDriven() {
+        var input = TestImageFixtures.CreatePng(3000, 4000);
+        var result = await processor.ProcessAsync(new MemoryStream(input), default);
+
+        Assert.Equal(1500, result.Width);
+        Assert.Equal(2000, result.Height);
+    }
+
+    [Fact]
+    public async Task DoesNotResizeWhenLongestEdgeUnderThreshold() {
+        var input = TestImageFixtures.CreatePng(1500, 1000);
+        var result = await processor.ProcessAsync(new MemoryStream(input), default);
+
+        Assert.Equal(1500, result.Width);
+        Assert.Equal(1000, result.Height);
+    }
+
+    [Fact]
+    public async Task DoesNotResizeAtExactBoundary() {
+        var input = TestImageFixtures.CreatePng(2000, 1500);
+        var result = await processor.ProcessAsync(new MemoryStream(input), default);
+
+        Assert.Equal(2000, result.Width);
+        Assert.Equal(1500, result.Height);
+    }
 }

@@ -1072,7 +1072,13 @@ function showConfirm(message, opts = {}) {
 // ─── Action buttons ───
 function setupActions() {
     document.getElementById('btn-delete-account').addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
+        const ok = await showConfirm('Are you sure you want to delete your account? This cannot be undone.', {
+            title: 'Delete account',
+            confirmText: 'Delete account',
+            cancelText: 'Cancel',
+            variant: 'danger'
+        });
+        if (!ok) return;
 
         try {
             const res = await PLAuth.authFetch('/account', { method: 'DELETE' });
@@ -1080,10 +1086,10 @@ function setupActions() {
                 PLAuth.clearCreds();
                 window.location.href = '/signin.html';
             } else {
-                alert('Failed to delete account.');
+                await showAlert('Failed to delete account.', { title: 'Error' });
             }
         } catch (e) {
-            alert('Failed to delete account.');
+            await showAlert('Failed to delete account.', { title: 'Error' });
             console.error('Delete account failed:', e.message);
         }
     });

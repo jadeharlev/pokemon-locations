@@ -8,4 +8,4 @@ public record UserImage(
     string OriginalFilename,
     string ContentType,
     int ByteSize,
-    DateTimeOffset UploadedAt);
+    DateTime UploadedAt);

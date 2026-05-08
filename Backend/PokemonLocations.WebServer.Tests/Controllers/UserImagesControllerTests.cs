@@ -221,4 +221,35 @@ public class UserImagesControllerTests {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Equal("cap_reached", (await ReadJsonAsync(response)).GetProperty("error").GetString());
     }
+
+    [Fact]
+    public async Task PostCorruptBytesWithValidMimeReturns415() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        using var content = MakeMultipart(
+            PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreateCorruptBytes(),
+            "x.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.UnsupportedMediaType, response.StatusCode);
+        Assert.Equal("decode_failed", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
+
+    [Fact]
+    public async Task PostDecodeBombReturns400() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        var bytes = PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreatePng(8000, 8000);
+        using var content = MakeMultipart(bytes, "bomb.png", "image/png");
+        var response = await client.PostAsync("/api/me/locations/1/images", content);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal("decode_bomb", (await ReadJsonAsync(response)).GetProperty("error").GetString());
+    }
 }

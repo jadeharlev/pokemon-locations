@@ -7,6 +7,47 @@ let selectedLocationId = null;
 let currentBadges = new Set();
 let noteDebounceTimer = null;
 let galleryTimer = null;
+let currentLocation = null; // { locationId, name, images, userImages, ... }
+
+function rerenderGallery() {
+    if (!currentLocation) return;
+    const galleryEl = document.getElementById('image-gallery');
+    const merged = [
+        ...(currentLocation.images || []).map(img => ({ ...img, isUserImage: false })),
+        ...(currentLocation.userImages || []).map(img => ({ ...img, isUserImage: true }))
+    ];
+    renderGallery(galleryEl, merged, currentLocation.name);
+    updateUploadButtonState();
+}
+
+function updateUploadButtonState() {
+    const btn = document.getElementById('gallery-upload');
+    if (!btn || !currentLocation) return;
+    const count = (currentLocation.userImages || []).length;
+    btn.disabled = count >= 20;
+    btn.title = btn.disabled ? '20-image limit reached' : 'Upload images';
+}
+
+function showToast(message, persistent = false) {
+    let toast = document.getElementById('gallery-toast');
+    if (toast) toast.remove();
+    toast = document.createElement('div');
+    toast.id = 'gallery-toast';
+    toast.className = 'gallery-toast';
+    const text = document.createElement('span');
+    text.textContent = message;
+    toast.appendChild(text);
+    if (persistent) {
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = '×';
+        close.addEventListener('click', () => toast.remove());
+        toast.appendChild(close);
+    } else {
+        setTimeout(() => toast.remove(), 4000);
+    }
+    document.body.appendChild(toast);
+}
 
 // ─── Gallery carousel + modal ───
 const GALLERY_INTERVAL_MS = 5000;
@@ -95,15 +136,43 @@ function renderGallery(galleryEl, images, locationName) {
 
         const bg = document.createElement('img');
         bg.className = 'slide-bg';
-        bg.src = img.imageUrl || img.url;
         bg.alt = '';
         bg.setAttribute('aria-hidden', 'true');
 
         const fg = document.createElement('img');
         fg.className = 'slide-fg';
-        fg.src = img.imageUrl || img.url;
         fg.alt = img.caption || locationName || '';
         fg.addEventListener('click', () => openGalleryModal(fg.src, img.caption || locationName || ''));
+
+        if (img.isUserImage) {
+            loadUserImageBlob(img.imageUrl).then(blobUrl => {
+                bg.src = blobUrl;
+                fg.src = blobUrl;
+            }).catch(err => console.error('User image fetch failed:', err));
+
+            const del = document.createElement('button');
+            del.type = 'button';
+            del.className = 'slide-delete';
+            del.setAttribute('aria-label', 'Delete image');
+            del.textContent = '×';
+            del.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!confirm('Delete this image?')) return;
+                const res = await PLAuth.authFetch(img.imageUrl, { method: 'DELETE' });
+                if (res.ok) {
+                    const idx = currentLocation.userImages.findIndex(u => u.imageId === img.imageId);
+                    if (idx >= 0) currentLocation.userImages.splice(idx, 1);
+                    rerenderGallery();
+                    showToast('Image deleted');
+                } else {
+                    showToast(`Delete failed (${res.status})`, true);
+                }
+            });
+            slide.appendChild(del);
+        } else {
+            bg.src = img.imageUrl || img.url;
+            fg.src = img.imageUrl || img.url;
+        }
 
         slide.append(bg, fg);
         galleryEl.appendChild(slide);
@@ -324,14 +393,16 @@ async function loadLocationDetail(locationId) {
         }
 
         const location = await res.json();
+        currentLocation = location;
         descEl.textContent = location.description || '';
 
         // Image gallery
-        const images = [
-            ...(location.images || []),
-            ...(location.userImages || [])
+        const merged = [
+            ...(location.images || []).map(img => ({ ...img, isUserImage: false })),
+            ...(location.userImages || []).map(img => ({ ...img, isUserImage: true }))
         ];
-        renderGallery(galleryEl, images, location.name);
+        renderGallery(galleryEl, merged, location.name);
+        updateUploadButtonState();
 
         // Status is computed after buildings load — see updateLocationStatus()
     } catch (e) {

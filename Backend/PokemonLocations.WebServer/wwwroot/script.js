@@ -69,6 +69,60 @@ function revokeAllBlobUrls() {
     activeBlobUrls = [];
 }
 
+const ALLOWED_MIMES = ['image/png', 'image/jpeg', 'image/webp'];
+const MAX_BYTES = 10 * 1024 * 1024;
+const CAP_PER_LOCATION = 20;
+
+async function uploadFiles(fileList) {
+    if (!currentLocation) return;
+    const files = Array.from(fileList);
+    const rejected = [];
+    const accepted = [];
+
+    for (const f of files) {
+        if (!ALLOWED_MIMES.includes(f.type)) {
+            rejected.push({ name: f.name, reason: 'unsupported type' });
+            continue;
+        }
+        if (f.size > MAX_BYTES) {
+            rejected.push({ name: f.name, reason: 'too large' });
+            continue;
+        }
+        accepted.push(f);
+    }
+
+    const remaining = CAP_PER_LOCATION - (currentLocation.userImages || []).length;
+    const toUpload = accepted.slice(0, Math.max(0, remaining));
+    const overflow = accepted.slice(Math.max(0, remaining));
+    overflow.forEach(f => rejected.push({ name: f.name, reason: 'over cap' }));
+
+    let succeeded = 0;
+    const failed = [];
+    for (const f of toUpload) {
+        const fd = new FormData();
+        fd.append('file', f, f.name);
+        const url = `/api/me/locations/${currentLocation.locationId}/images`;
+        const res = await PLAuth.authFetch(url, { method: 'POST', body: fd });
+        if (res.ok) {
+            const body = await res.json();
+            currentLocation.userImages = [body, ...(currentLocation.userImages || [])];
+            succeeded++;
+        } else {
+            let code = `${res.status}`;
+            try { code = (await res.json()).error || code; } catch { /* not JSON */ }
+            failed.push({ name: f.name, reason: code });
+        }
+    }
+
+    rerenderGallery();
+
+    const parts = [];
+    if (succeeded) parts.push(`${succeeded} uploaded`);
+    rejected.forEach(r => parts.push(`${r.name} skipped (${r.reason})`));
+    failed.forEach(f => parts.push(`${f.name} failed (${f.reason})`));
+    showToast(parts.join(' · '), failed.length > 0 || rejected.length > 0);
+}
+
 function openGalleryModal(src, caption) {
     const modal = document.getElementById('gallery-modal');
     const img = document.getElementById('modal-image');
@@ -847,6 +901,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     setupNotesAutoSave();
     setupActions();
+
+    const uploadBtn = document.getElementById('gallery-upload');
+    const fileInput = document.getElementById('gallery-file-input');
+    if (uploadBtn && fileInput) {
+        uploadBtn.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                await uploadFiles(e.target.files);
+                e.target.value = '';
+            }
+        });
+    }
 
     startWeatherTicker();
 

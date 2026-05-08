@@ -161,4 +161,37 @@ public class UserImageRepositoryTests {
         Assert.Equal(1, await repository.CountForUserAndLocationAsync(userId, 2));
         Assert.Equal(0, await repository.CountForUserAndLocationAsync(userId, 99));
     }
+
+    [Fact]
+    public async Task AddAsyncReturnsAtCapWhenLimitReached() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        for (int i = 0; i < 3; i++) {
+            await repository.AddAsync(MakeImage(userId, 1), locationCap: 3);
+        }
+
+        var result = await repository.AddAsync(MakeImage(userId, 1), locationCap: 3);
+
+        Assert.Equal(AddResult.AtCap, result);
+        Assert.Equal(3, await repository.CountForUserAndLocationAsync(userId, 1));
+    }
+
+    [Fact]
+    public async Task DeletingUserCascadesUserImages() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        await repository.AddAsync(MakeImage(userId, 1), 20);
+        await repository.AddAsync(MakeImage(userId, 2), 20);
+
+        await CreateUserRepository().DeleteAsync(userId);
+
+        await using var connection = new NpgsqlConnection(postgresFixture.ConnectionString);
+        await connection.OpenAsync();
+        var orphans = await connection.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM user_images WHERE user_id = @UserId",
+            new { UserId = userId });
+        Assert.Equal(0, orphans);
+    }
 }

@@ -12,12 +12,15 @@ namespace PokemonLocations.WebServer.Controllers;
 public class LocationsController : ControllerBase {
     private readonly IPokemonLocationsApiClient apiClient;
     private readonly IVisitedBuildingRepository visitedBuildingRepository;
+    private readonly IUserImageRepository userImageRepository;
 
     public LocationsController(
         IPokemonLocationsApiClient apiClient,
-        IVisitedBuildingRepository visitedBuildingRepository) {
+        IVisitedBuildingRepository visitedBuildingRepository,
+        IUserImageRepository userImageRepository) {
         this.apiClient = apiClient;
         this.visitedBuildingRepository = visitedBuildingRepository;
+        this.userImageRepository = userImageRepository;
     }
 
     [HttpGet]
@@ -45,7 +48,18 @@ public class LocationsController : ControllerBase {
         var location = JsonNode.Parse(response.Body!)!.AsObject();
         var visitedIds = await visitedBuildingRepository.GetDistinctLocationIdsForUserAsync(User.GetUserId());
         location["visited"] = visitedIds.Contains(locationId);
-        location["userImages"] = new JsonArray();
+
+        var userImages = await userImageRepository.GetForUserAndLocationAsync(User.GetUserId(), locationId);
+        var userImagesArray = new JsonArray();
+        foreach (var ui in userImages) {
+            userImagesArray.Add(new JsonObject {
+                ["imageId"] = ui.ImageId.ToString(),
+                ["imageUrl"] = $"/api/me/locations/{locationId}/images/{ui.ImageId}",
+                ["originalFilename"] = ui.OriginalFilename,
+                ["uploadedAt"] = ui.UploadedAt.ToString("o")
+            });
+        }
+        location["userImages"] = userImagesArray;
 
         return Content(location.ToJsonString(), "application/json");
     }

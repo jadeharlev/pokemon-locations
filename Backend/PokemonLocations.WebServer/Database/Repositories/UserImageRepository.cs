@@ -80,6 +80,11 @@ public class UserImageRepository : IUserImageRepository {
             "DELETE FROM user_images WHERE user_id = @UserId AND image_id = @ImageId",
             new { UserId = userId, ImageId = imageId });
     }
-    public Task<int> CountForUserAndLocationAsync(int userId, int locationId) =>
-        throw new NotImplementedException();
+    public async Task<int> CountForUserAndLocationAsync(int userId, int locationId) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await connection.ExecuteScalarAsync<int>(
+            @"SELECT COUNT(*) FROM user_images
+               WHERE user_id = @UserId AND location_id = @LocationId",
+            new { UserId = userId, LocationId = locationId });
+    }
 }

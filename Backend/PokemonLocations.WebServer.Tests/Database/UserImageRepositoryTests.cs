@@ -147,4 +147,18 @@ public class UserImageRepositoryTests {
         var stillThere = await repository.GetByIdForUserAsync(blueId, blueImage.ImageId);
         Assert.NotNull(stillThere);
     }
+
+    [Fact]
+    public async Task CountForUserAndLocationAsyncReturnsScopedCount() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        await repository.AddAsync(MakeImage(userId, 1), 20);
+        await repository.AddAsync(MakeImage(userId, 1), 20);
+        await repository.AddAsync(MakeImage(userId, 2), 20);
+
+        Assert.Equal(2, await repository.CountForUserAndLocationAsync(userId, 1));
+        Assert.Equal(1, await repository.CountForUserAndLocationAsync(userId, 2));
+        Assert.Equal(0, await repository.CountForUserAndLocationAsync(userId, 99));
+    }
 }

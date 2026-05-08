@@ -62,7 +62,7 @@ private static readonly HashSet<string> All = new(StringComparer.Ordinal) {
 
 Three changes, all isolated to the existing theme code (lines ~770–990):
 
-**(a) Theme-button click handler** — currently sends the *resolved* theme to the server:
+**(a) Theme-button click handler** — currently sends the *resolved* theme to the server, and updates the `#user-info` label with the resolved name:
 
 ```js
 // before
@@ -75,6 +75,8 @@ await PLAuth.authFetch('/account/theme', {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ theme })  // sends resolved name
 });
+// ...
+themeLabel.textContent = formatThemeName(theme);  // shows resolved name
 ```
 
 becomes:
@@ -89,7 +91,15 @@ await PLAuth.authFetch('/account/theme', {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ theme: selectedTheme })  // persist 'random' as preference
 });
+// ...
+themeLabel.textContent = formatThemeName(selectedTheme);  // shows the *preference*
 ```
+
+Three things move together in this change:
+
+1. The `theme` local is renamed to `resolved` to make the distinction between *preference* and *applied name* explicit at every read site.
+2. The `body: JSON.stringify(...)` argument now carries `selectedTheme` (the preference) instead of `theme` (the resolved name). This is what persists `'random'` to the DB.
+3. The `themeLabel.textContent = formatThemeName(...)` call also switches from `theme` to `selectedTheme`. The "Theme: ..." line in `#user-info` should display `"Random"` — what the user *chose* — rather than the specific theme that happened to roll. This keeps the click-time label consistent with the page-reload label (which is already populated via `formatThemeName(user.theme)` at line 856 and naturally renders `"Random"` for the random preference).
 
 **(b) `/api/me` response handler** — currently calls `applyTheme(user.theme)` directly. Change to resolve `'random'` to a concrete theme before applying:
 
@@ -103,6 +113,14 @@ applyTheme(themeToApply);
 ```
 
 **(c) Initial paint** — unchanged. The initial `applyTheme(sessionStorage.getItem(THEME_CACHE_KEY) || 'bulbasaur')` runs against the *resolved* theme name from the previous load, so the first paint is instant and visually consistent. The re-randomization in (b) happens shortly after when `/api/me` resolves, accepting a brief crossfade on reload.
+
+**(d) `#user-info` label on `/api/me` load** — unchanged. The existing line 856
+
+```js
+<p>Theme: <strong>${escapeHtml(formatThemeName(user.theme))}</strong></p>
+```
+
+correctly displays `"Random"` when `user.theme === 'random'`, because `formatThemeName('random')` capitalizes to `"Random"`. No change needed here. Together with (a)'s click-handler fix, both code paths now agree: the label always reflects the user's preference, never the rolled theme.
 
 ### 4.5 Why no `applyThemePreference` wrapper?
 

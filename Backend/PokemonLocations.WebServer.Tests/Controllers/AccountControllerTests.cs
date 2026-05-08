@@ -267,6 +267,7 @@ public class AccountControllerTests {
     [InlineData("charmander")]
     [InlineData("squirtle")]
     [InlineData("pikachu")]
+    [InlineData("random")]
     public async Task UpdateThemeReturns204AndPersists(string theme) {
         await ResetUsersAsync();
         await SeedUserAsync("red@example.com", "pikachu123", "Red");

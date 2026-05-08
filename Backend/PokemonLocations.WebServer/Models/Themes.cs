@@ -13,6 +13,7 @@ public static class Themes
     public const string Dratini = "dratini";
     public const string Mew = "mew";
     public const string Dragonite = "dragonite";
+    public const string Random = "random";
 
     private static readonly HashSet<string> All = new(StringComparer.Ordinal)
     {
@@ -25,7 +26,8 @@ public static class Themes
         Geodude,
         Dratini,
         Mew,
-        Dragonite
+        Dragonite,
+        Random,
     };
 
     public static bool IsValid(string? theme) => theme is not null && All.Contains(theme);

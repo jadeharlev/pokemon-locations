@@ -1,16 +1,13 @@
+networks:
+  default:
+    driver: bridge
+
 services:
   webserver:
     networks:
       - default
       - app-network
     environment:
-      - StarTrekWeatherApi__BaseUrl=http://api:8080
+      - StarTrekWeatherApi__BaseUrl=http://weather-api:8080
       - StarTrekWeatherApi__Username=admin
       - StarTrekWeatherApi__Password=password123
-
-  web-db:
-    ports: []
-    profiles: ["capstone-web"]
-
-  web:
-    profiles: ["capstone-web"]

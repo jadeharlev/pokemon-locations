@@ -1,2 +1,52 @@
-include:
-  - ./external/SE498-Capstone/compose.yaml
+# Inline definitions for the SE498-Capstone StarTrekWeather API.
+#
+# We deliberately do NOT use docker-compose's `include:` directive to import
+# external/SE498-Capstone/compose.yaml. podman-compose's include implementation
+# mangles relative-path resolution for `build.context`, which caused services
+# from the included file to silently build from our project root instead of
+# from the submodule's directory.
+#
+# Services are renamed (api → weather-api, api-db → weather-api-db) to make
+# the namespace unambiguous when merged with our debug.yml.
+#
+# We don't pull in the submodule's `web` / `web-db` services — we have our
+# own webserver and DB.
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  weather-api-db:
+    image: postgres:16
+    networks:
+      - app-network
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: K0rmaVindal00!!
+      POSTGRES_DB: StarTrekAPIDB
+    volumes:
+      - weather_api_pg_data:/var/lib/postgresql/data
+      - ./external/SE498-Capstone/StarTrekWeatherAPI/StarTrekWeatherAPI_create.sql:/docker-entrypoint-initdb.d/StarTrekWeatherAPI_create.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 5
+
+  weather-api:
+    build:
+      context: ./external/SE498-Capstone/StarTrekWeatherAPI
+      dockerfile: Dockerfile
+    networks:
+      - app-network
+    depends_on:
+      weather-api-db:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=weather-api-db;Port=5432;Database=StarTrekAPIDB;Username=postgres;Password=K0rmaVindal00!!"
+      PublicBaseUrl: "http://localhost:5002"
+    ports:
+      - "5002:8080"
+
+volumes:
+  weather_api_pg_data:

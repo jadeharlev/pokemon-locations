@@ -12,6 +12,22 @@ let galleryTimer = null;
 const GALLERY_INTERVAL_MS = 5000;
 let resumeCarousel = null;
 
+let activeBlobUrls = [];
+
+async function loadUserImageBlob(imageUrl) {
+    const res = await PLAuth.authFetch(imageUrl);
+    if (!res.ok) throw new Error(`Image fetch failed: ${res.status}`);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    activeBlobUrls.push(blobUrl);
+    return blobUrl;
+}
+
+function revokeAllBlobUrls() {
+    activeBlobUrls.forEach(URL.revokeObjectURL);
+    activeBlobUrls = [];
+}
+
 function openGalleryModal(src, caption) {
     const modal = document.getElementById('gallery-modal');
     const img = document.getElementById('modal-image');
@@ -65,6 +81,7 @@ function renderGallery(galleryEl, images, locationName) {
         galleryTimer = null;
     }
     resumeCarousel = null;
+    revokeAllBlobUrls();
     galleryEl.replaceChildren();
 
     if (images.length === 0) {

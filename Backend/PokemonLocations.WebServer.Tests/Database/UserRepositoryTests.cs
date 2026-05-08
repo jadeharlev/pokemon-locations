@@ -90,6 +90,7 @@ public class UserRepositoryTests {
     [InlineData("charmander")]
     [InlineData("squirtle")]
     [InlineData("pikachu")]
+    [InlineData("random")]
     public async Task UpdateThemeAsyncPersistsTheme(string theme) {
         await ResetUsersAsync();
         var repository = CreateRepository();

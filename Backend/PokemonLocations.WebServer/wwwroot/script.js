@@ -471,6 +471,126 @@ const THEMES = [
 ];
 const THEME_CACHE_KEY = 'pl.theme';
 
+
+
+const THEME_UNLOCK_RULES = {
+    rattata: {
+        label: 'Visit 1 location',
+        isUnlocked: stats => stats.locationsVisited >= 1
+    },
+    diglett: {
+        label: 'Visit 3 buildings',
+        isUnlocked: stats => stats.buildingsVisited >= 3
+    },
+    geodude: {
+        label: 'Visit 5 buildings',
+        isUnlocked: stats => stats.buildingsVisited >= 5
+    },
+    dratini: {
+        label: 'Visit 3 locations',
+        isUnlocked: stats => stats.locationsVisited >= 3
+    },
+    dragonite: {
+        label: 'Earn 3 badges',
+        isUnlocked: stats => stats.gymsComplete >= 3
+    },
+    mew: {
+        label: 'Earn 8 badges',
+        isUnlocked: stats => stats.gymsComplete >= 8
+    }
+};
+
+let currentStats = {
+    gymsComplete: 0,
+    locationsVisited: 0,
+    buildingsVisited: 0
+};
+
+
+const UNLOCKED_THEMES_CACHE_KEY = 'pl.unlockedThemes';
+
+function getUnlockedThemeSet() {
+    return new Set(getUnlockedThemes());
+}
+
+function rememberUnlockedThemes(unlockedThemes) {
+    sessionStorage.setItem(
+        UNLOCKED_THEMES_CACHE_KEY,
+        JSON.stringify([...unlockedThemes])
+    );
+}
+
+function getRememberedUnlockedThemes() {
+    const raw = sessionStorage.getItem(UNLOCKED_THEMES_CACHE_KEY);
+
+    if (!raw) {
+        return null;
+    }
+
+    try {
+        return new Set(JSON.parse(raw));
+    } catch {
+        return null;
+    }
+}
+
+function showUnlockMessage(theme) {
+    const message = document.createElement('div');
+    message.className = 'theme-unlock-message';
+    message.textContent = `🎉 You unlocked ${formatThemeName(theme)}!`;
+
+    document.body.appendChild(message);
+
+    setTimeout(() => {
+        message.remove();
+    }, 3000);
+}
+
+function showConfetti() {
+    const confetti = document.createElement('div');
+    confetti.className = 'confetti-container';
+
+    for (let i = 0; i < 40; i++) {
+        const piece = document.createElement('span');
+        piece.className = 'confetti-piece';
+        piece.style.left = `${Math.random() * 100}%`;
+        piece.style.animationDelay = `${Math.random() * 0.5}s`;
+        piece.style.transform = `rotate(${Math.random() * 360}deg)`;
+        confetti.appendChild(piece);
+    }
+
+    document.body.appendChild(confetti);
+
+    setTimeout(() => {
+        confetti.remove();
+    }, 2500);
+}
+
+function checkForNewThemeUnlocks() {
+    const currentlyUnlocked = getUnlockedThemeSet();
+    const previouslyUnlocked = getRememberedUnlockedThemes();
+
+    // First time loading the page: remember current unlocks but do not show confetti.
+    if (!previouslyUnlocked) {
+        rememberUnlockedThemes(currentlyUnlocked);
+        return;
+    }
+
+    const newlyUnlocked = [...currentlyUnlocked].filter(theme => !previouslyUnlocked.has(theme));
+
+    if (newlyUnlocked.length > 0) {
+        newlyUnlocked.forEach(theme => {
+            showUnlockMessage(theme);
+            showConfetti();
+        });
+    }
+
+    rememberUnlockedThemes(currentlyUnlocked);
+}
+
+
+
+
 function applyTheme(name) {
     if (!THEMES.includes(name)) name = 'bulbasaur';
     document.documentElement.setAttribute('data-theme', name);
@@ -481,7 +601,8 @@ function applyTheme(name) {
 
 function pickRandomTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
-    const choices = THEMES.filter(theme => theme !== currentTheme);
+
+    const choices = getUnlockedThemes().filter(theme => theme !== currentTheme);
 
     if (choices.length === 0) {
         return currentTheme;
@@ -492,6 +613,56 @@ function pickRandomTheme() {
 }
 
 const formatThemeName = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+
+function isThemeUnlocked(theme) {
+    const rule = THEME_UNLOCK_RULES[theme];
+
+    if (!rule) {
+        return true;
+    }
+
+    return rule.isUnlocked(currentStats);
+}
+
+function getUnlockedThemes() {
+    return THEMES.filter(theme => isThemeUnlocked(theme));
+}
+
+function updateThemeButtons() {
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        const theme = btn.dataset.theme;
+
+        if (theme === 'random') {
+            btn.disabled = false;
+            btn.classList.remove('theme-locked');
+            btn.removeAttribute('aria-disabled');
+            btn.title = 'Randomly choose from your unlocked themes';
+            return;
+        }
+
+        const unlocked = isThemeUnlocked(theme);
+        const rule = THEME_UNLOCK_RULES[theme];
+
+        // Do not disable the button because disabled buttons do not hover well.
+        // Instead, visually lock it and block selection in the click handler.
+        btn.disabled = false;
+        btn.classList.toggle('theme-locked', !unlocked);
+        btn.setAttribute('aria-disabled', String(!unlocked));
+
+        if (!unlocked && rule) {
+            btn.textContent = formatThemeName(theme);
+            btn.title = `Unlock condition: ${rule.label}`;
+        } else {
+            btn.textContent = btn.dataset.label || formatThemeName(theme);
+            btn.title = '';
+        }
+    });
+}
+
+
+
+
+
 
 // Apply cached theme synchronously to avoid a flash
 applyTheme(sessionStorage.getItem(THEME_CACHE_KEY) || 'bulbasaur');
@@ -525,13 +696,20 @@ async function loadStats() {
         if (!res.ok) return;
         const stats = await res.json();
 
+        currentStats = stats;
+
         document.getElementById('stat-gyms').textContent = stats.gymsComplete;
         document.getElementById('stat-locations').textContent = stats.locationsVisited;
         document.getElementById('stat-buildings').textContent = stats.buildingsVisited;
+
+        updateThemeButtons();
+        checkForNewThemeUnlocks();
     } catch (e) {
         console.error('Failed to load stats:', e.message);
     }
 }
+
+
 
 // ─── Action buttons ───
 function setupActions() {
@@ -606,6 +784,10 @@ function setupActions() {
         btn.addEventListener('click', async () => {
             const selectedTheme = btn.dataset.theme;
             const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
+            if (!isThemeUnlocked(theme)) {
+                alert(`This theme is locked. ${THEME_UNLOCK_RULES[theme].label} to unlock it.`);
+                return;
+            }
 
             const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
             applyTheme(theme);

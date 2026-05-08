@@ -122,8 +122,19 @@ public class UserImagesController : ControllerBase {
     }
 
     [HttpGet("{imageId:guid}")]
-    public Task<IActionResult> Get(int locationId, Guid imageId) =>
-        throw new NotImplementedException();
+    public async Task<IActionResult> Get(int locationId, Guid imageId) {
+        var userId = User.GetUserId();
+        var image = await repository.GetByIdForUserAsync(userId, imageId);
+        if (image is null || image.LocationId != locationId) {
+            return NotFound(new { error = "not_found" });
+        }
+        if (!System.IO.File.Exists(image.FilePath)) {
+            return NotFound(new { error = "not_found" });
+        }
+        Response.Headers.CacheControl = "private, max-age=3600";
+        var stream = System.IO.File.OpenRead(image.FilePath);
+        return File(stream, image.ContentType);
+    }
 
     private void DeleteSilently(string path) {
         try { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }

@@ -363,4 +363,66 @@ public class UserImagesControllerTests {
         var second = await client.DeleteAsync($"/api/me/locations/1/images/{Guid.NewGuid()}");
         Assert.Equal(HttpStatusCode.NotFound, second.StatusCode);
     }
+
+    [Fact]
+    public async Task GetOwnedImageReturns200WithCorrectContentTypeAndBytes() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        string imageId;
+        using (var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png")) {
+            var post = await client.PostAsync("/api/me/locations/1/images", c);
+            imageId = (await ReadJsonAsync(post)).GetProperty("imageId").GetString()!;
+        }
+
+        var response = await client.GetAsync($"/api/me/locations/1/images/{imageId}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType?.MediaType);
+        Assert.NotEmpty(await response.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task GetAnotherUsersImageReturns404() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+
+        var redClient = AuthorizedClient(factory, "red@example.com", "pikachu123");
+        string redImageId;
+        using (var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png")) {
+            var post = await redClient.PostAsync("/api/me/locations/1/images", c);
+            redImageId = (await ReadJsonAsync(post)).GetProperty("imageId").GetString()!;
+        }
+
+        var blueClient = AuthorizedClient(factory, "blue@example.com", "squirtle1");
+        var response = await blueClient.GetAsync($"/api/me/locations/1/images/{redImageId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetWhenFileDeletedFromDiskReturns404() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        string imageId;
+        using (var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png")) {
+            var post = await client.PostAsync("/api/me/locations/1/images", c);
+            imageId = (await ReadJsonAsync(post)).GetProperty("imageId").GetString()!;
+        }
+
+        foreach (var f in Directory.EnumerateFiles(factory.UploadRoot, $"{imageId}.*", SearchOption.AllDirectories)) {
+            File.Delete(f);
+        }
+
+        var response = await client.GetAsync($"/api/me/locations/1/images/{imageId}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 }

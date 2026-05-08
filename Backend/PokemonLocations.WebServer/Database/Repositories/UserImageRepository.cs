@@ -74,8 +74,12 @@ public class UserImageRepository : IUserImageRepository {
             new { UserId = userId, LocationId = locationId });
         return rows.ToList();
     }
-    public Task RemoveAsync(int userId, Guid imageId) =>
-        throw new NotImplementedException();
+    public async Task RemoveAsync(int userId, Guid imageId) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        await connection.ExecuteAsync(
+            "DELETE FROM user_images WHERE user_id = @UserId AND image_id = @ImageId",
+            new { UserId = userId, ImageId = imageId });
+    }
     public Task<int> CountForUserAndLocationAsync(int userId, int locationId) =>
         throw new NotImplementedException();
 }

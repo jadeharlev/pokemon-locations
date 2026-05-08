@@ -110,4 +110,41 @@ public class UserImageRepositoryTests {
         Assert.Single(redImages);
         Assert.Equal(redId, redImages[0].UserId);
     }
+
+    [Fact]
+    public async Task RemoveAsyncDeletesOwnedImage() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+        var image = MakeImage(userId, 1);
+        await repository.AddAsync(image, 20);
+
+        await repository.RemoveAsync(userId, image.ImageId);
+
+        Assert.Null(await repository.GetByIdForUserAsync(userId, image.ImageId));
+    }
+
+    [Fact]
+    public async Task RemoveAsyncIsIdempotentWhenRowMissing() {
+        await ResetAsync();
+        var userId = await SeedUserAsync();
+        var repository = CreateRepository();
+
+        await repository.RemoveAsync(userId, Guid.NewGuid()); // should not throw
+    }
+
+    [Fact]
+    public async Task RemoveAsyncDoesNotDeleteAnotherUsersImage() {
+        await ResetAsync();
+        var redId = await SeedUserAsync("red@example.com");
+        var blueId = await SeedUserAsync("blue@example.com");
+        var repository = CreateRepository();
+        var blueImage = MakeImage(blueId, 1);
+        await repository.AddAsync(blueImage, 20);
+
+        await repository.RemoveAsync(redId, blueImage.ImageId);
+
+        var stillThere = await repository.GetByIdForUserAsync(blueId, blueImage.ImageId);
+        Assert.NotNull(stillThere);
+    }
 }

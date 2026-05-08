@@ -1005,6 +1005,70 @@ async function loadStats() {
 
 
 
+// ─── Custom dialog helpers ───
+// Promise-based replacements for native alert() / confirm().
+// Resolves true on confirm-click, false on any dismiss path
+// (Cancel, X, Escape, backdrop click).
+function showDialog({ title, message, confirmText, cancelText, variant }) {
+    const modalEl = document.getElementById('dialog-modal');
+    const titleEl = document.getElementById('dialog-title');
+    const messageEl = document.getElementById('dialog-message');
+    const confirmBtn = document.getElementById('dialog-confirm');
+    const cancelBtn = document.getElementById('dialog-cancel');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    confirmBtn.textContent = confirmText;
+
+    confirmBtn.classList.remove('btn-primary', 'btn-danger');
+    confirmBtn.classList.add(variant === 'danger' ? 'btn-danger' : 'btn-primary');
+
+    if (cancelText === null) {
+        cancelBtn.style.display = 'none';
+    } else {
+        cancelBtn.style.display = '';
+        cancelBtn.textContent = cancelText;
+    }
+
+    return new Promise(resolve => {
+        let resolved = false;
+        const onConfirm = () => {
+            resolved = true;
+            modal.hide();
+        };
+        const onHidden = () => {
+            confirmBtn.removeEventListener('click', onConfirm);
+            modalEl.removeEventListener('hidden.bs.modal', onHidden);
+            resolve(resolved);
+        };
+        confirmBtn.addEventListener('click', onConfirm);
+        modalEl.addEventListener('hidden.bs.modal', onHidden);
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    });
+}
+
+function showAlert(message, opts = {}) {
+    return showDialog({
+        title: opts.title ?? 'Notice',
+        message,
+        confirmText: opts.buttonText ?? 'OK',
+        cancelText: null,
+        variant: 'default'
+    });
+}
+
+function showConfirm(message, opts = {}) {
+    return showDialog({
+        title: opts.title ?? 'Confirm',
+        message,
+        confirmText: opts.confirmText ?? 'Confirm',
+        cancelText: opts.cancelText ?? 'Cancel',
+        variant: opts.variant ?? 'default'
+    });
+}
+
 // ─── Action buttons ───
 function setupActions() {
     document.getElementById('btn-delete-account').addEventListener('click', async () => {

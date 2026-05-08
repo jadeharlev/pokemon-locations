@@ -848,7 +848,8 @@ async function loadUserInfo() {
         if (!res.ok) throw new Error(`Status: ${res.status}`);
         const user = await res.json();
 
-        applyTheme(user.theme);
+        const themeToApply = user.theme === 'random' ? pickRandomTheme() : user.theme;
+        applyTheme(themeToApply);
         setHomePlanet(user.permanentPlanetName ?? null);
 
         container.innerHTML = `

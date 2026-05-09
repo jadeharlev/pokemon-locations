@@ -1148,11 +1148,7 @@ function setupActions() {
         btn.addEventListener('click', async () => {
             const selectedTheme = btn.dataset.theme;
             const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
-
-            if (!isThemeUnlocked(theme)) {
-                alert(`This theme is locked. ${THEME_UNLOCK_RULES[theme].label} to unlock it.`);
-                return;
-            }
+            if (!isThemeUnlocked(theme)) return;
 
             const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
             applyTheme(theme);
@@ -1178,6 +1174,10 @@ function setupActions() {
                 console.error('Theme update failed:', e.message);
             }
         });
+    });
+
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        new bootstrap.Tooltip(btn, { placement: 'right', trigger: 'hover focus' });
     });
 }
 

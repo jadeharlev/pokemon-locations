@@ -643,6 +643,8 @@ const THEMES = [
 ];
 const THEME_CACHE_KEY = 'pl.theme';
 
+const HIDDEN_THEMES = ['shiny-eevee'];
+const VALID_THEMES = [...THEMES, ...HIDDEN_THEMES];
 
 
 const THEME_UNLOCK_RULES = {
@@ -764,17 +766,20 @@ function checkForNewThemeUnlocks() {
 
 
 function applyTheme(name) {
-    if (!THEMES.includes(name)) name = 'bulbasaur';
+    if (!VALID_THEMES.includes(name)) name = 'bulbasaur';
     document.documentElement.setAttribute('data-theme', name);
     const link = document.getElementById('theme-stylesheet');
     if (link) link.href = `/css/themes/${name}.css`;
     sessionStorage.setItem(THEME_CACHE_KEY, name);
 }
 
+
 function pickRandomTheme() {
     const currentTheme = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
 
-    const choices = getUnlockedThemes().filter(theme => theme !== currentTheme);
+    const choices = getUnlockedThemes()
+        .filter(theme => !HIDDEN_THEMES.includes(theme))
+        .filter(theme => theme !== currentTheme);
 
     if (choices.length === 0) {
         return currentTheme;
@@ -784,7 +789,30 @@ function pickRandomTheme() {
     return choices[randomIndex];
 }
 
-const formatThemeName = (t) => t ? t.charAt(0).toUpperCase() + t.slice(1) : '';
+
+const THEME_DISPLAY_NAMES = {
+    bulbasaur: 'Bulbasaur',
+    charmander: 'Charmander',
+    squirtle: 'Squirtle',
+    pikachu: 'Pikachu',
+    rattata: 'Rattata',
+    diglett: 'Diglett',
+    geodude: 'Geodude',
+    dratini: 'Dratini',
+    mew: 'Mew',
+    dragonite: 'Dragonite',
+    'shiny-eevee': 'Shiny Eevee'
+};
+
+const formatThemeName = (theme) => THEME_DISPLAY_NAMES[theme] || '';
+
+function updateDisplayedThemeName(theme) {
+    const themeLabel = document.querySelector('#user-info p:nth-child(2) strong');
+
+    if (themeLabel) {
+        themeLabel.textContent = formatThemeName(theme);
+    }
+}
 
 function isThemeUnlocked(theme) {
     const rule = THEME_UNLOCK_RULES[theme];
@@ -838,6 +866,99 @@ function updateThemeButtons() {
 
 // Apply cached theme synchronously to avoid a flash
 applyTheme(sessionStorage.getItem(THEME_CACHE_KEY) || 'bulbasaur');
+
+
+
+
+
+const KONAMI_CODES = [
+    ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'],
+    ['ArrowUp', 'ArrowDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'a', 'b', 'Enter']
+];
+
+let konamiBuffer = [];
+
+function normalizeKonamiKey(event) {
+    if (event.key.length === 1) {
+        return event.key.toLowerCase();
+    }
+
+    return event.key;
+}
+
+function matchesKonamiCode(buffer, code) {
+    if (buffer.length < code.length) {
+        return false;
+    }
+
+    const recentKeys = buffer.slice(-code.length);
+    return code.every((key, index) => recentKeys[index] === key);
+}
+
+function showShinyEeveeMessage() {
+    const message = document.createElement('div');
+    message.className = 'theme-unlock-message';
+    message.textContent = '✨ Shiny Eevee theme activated!';
+
+    document.body.appendChild(message);
+
+    setTimeout(() => {
+        message.remove();
+    }, 3000);
+}
+
+
+async function activateShinyEeveeTheme() {
+    const theme = 'shiny-eevee';  
+            
+    applyTheme(theme);
+                
+    try {
+        const res = await PLAuth.authFetch('/account/theme', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme })
+        });
+
+        if (!res.ok) {
+            alert('Shiny Eevee activated, but it could not be saved.');
+            return;
+        }
+
+        updateDisplayedThemeName(theme);
+        showShinyEeveeMessage();
+
+        if (typeof showConfetti === 'function') {
+            showConfetti();
+        }
+    } catch (e) {
+        console.error('Failed to save Shiny Eevee theme:', e.message);
+        alert('Shiny Eevee activated, but it could not be saved.');
+    }
+}
+
+function setupKonamiCodeListener() {
+    document.addEventListener('keydown', async (event) => {
+        const key = normalizeKonamiKey(event);
+
+        konamiBuffer.push(key);
+
+        const maxLength = Math.max(...KONAMI_CODES.map(code => code.length));
+        if (konamiBuffer.length > maxLength) {
+            konamiBuffer.shift();
+        }
+
+        const matched = KONAMI_CODES.some(code => matchesKonamiCode(konamiBuffer, code));
+
+        if (matched) {
+            konamiBuffer = [];
+            await activateShinyEeveeTheme();
+        }
+    });
+}
+
+
+
 
 // ─── User info ───
 async function loadUserInfo() {
@@ -976,8 +1097,7 @@ function setupActions() {
                     alert('Failed to update theme.');
                     return;
                 }
-                const themeLabel = document.querySelector('#user-info p:nth-child(2) strong');
-                if (themeLabel) themeLabel.textContent = formatThemeName(selectedTheme);
+		updateDisplayedThemeName(theme);
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);
@@ -1112,6 +1232,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Set up event listeners
 
+    setupKonamiCodeListener();
     setupNotesAutoSave();
     setupActions();
 

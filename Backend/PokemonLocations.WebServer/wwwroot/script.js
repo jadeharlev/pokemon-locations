@@ -837,24 +837,33 @@ function updateThemeButtons() {
             btn.classList.remove('theme-locked');
             btn.removeAttribute('aria-disabled');
             btn.title = 'Randomly choose from your unlocked themes';
-            return;
+        } else {
+            const unlocked = isThemeUnlocked(theme);
+            const rule = THEME_UNLOCK_RULES[theme];
+
+            // Do not disable the button because disabled buttons do not hover well.
+            // Instead, visually lock it and block selection in the click handler.
+            btn.disabled = false;
+            btn.classList.toggle('theme-locked', !unlocked);
+            btn.setAttribute('aria-disabled', String(!unlocked));
+
+            if (!unlocked && rule) {
+                btn.textContent = formatThemeName(theme);
+                btn.title = `Unlock condition: ${rule.label}`;
+            } else {
+                btn.textContent = btn.dataset.label || formatThemeName(theme);
+                btn.title = '';
+            }
         }
 
-        const unlocked = isThemeUnlocked(theme);
-        const rule = THEME_UNLOCK_RULES[theme];
-
-        // Do not disable the button because disabled buttons do not hover well.
-        // Instead, visually lock it and block selection in the click handler.
-        btn.disabled = false;
-        btn.classList.toggle('theme-locked', !unlocked);
-        btn.setAttribute('aria-disabled', String(!unlocked));
-
-        if (!unlocked && rule) {
-            btn.textContent = formatThemeName(theme);
-            btn.title = `Unlock condition: ${rule.label}`;
-        } else {
-            btn.textContent = btn.dataset.label || formatThemeName(theme);
-            btn.title = '';
+        const tooltip = bootstrap.Tooltip.getInstance(btn);
+        if (tooltip) {
+            if (btn.title) {
+                tooltip.setContent({ '.tooltip-inner': btn.title });
+                tooltip.enable();
+            } else {
+                tooltip.disable();
+            }
         }
     });
 }

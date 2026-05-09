@@ -1077,27 +1077,30 @@ function setupActions() {
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.addEventListener('click', async () => {
             const selectedTheme = btn.dataset.theme;
-            const resolved = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
-            if (!isThemeUnlocked(resolved)) {
-                alert(`This theme is locked. ${THEME_UNLOCK_RULES[resolved].label} to unlock it.`);
+            const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
+
+            if (!isThemeUnlocked(theme)) {
+                alert(`This theme is locked. ${THEME_UNLOCK_RULES[theme].label} to unlock it.`);
                 return;
             }
 
             const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
-            applyTheme(resolved);
+            applyTheme(theme);
 
             try {
                 const res = await PLAuth.authFetch('/account/theme', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ theme: selectedTheme })
+                    body: JSON.stringify({ theme })
                 });
+
                 if (!res.ok) {
                     applyTheme(previous);
                     alert('Failed to update theme.');
                     return;
                 }
-		updateDisplayedThemeName(theme);
+
+                updateDisplayedThemeName(theme);
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);

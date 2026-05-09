@@ -14,22 +14,22 @@ public static class Themes
     public const string Mew = "mew";
     public const string Dragonite = "dragonite";
     public const string ShinyEevee = "shiny-eevee";
+    public const string Random = "random";
 
-    private static readonly HashSet<string> All = new(StringComparer.Ordinal)
-    {
-        Bulbasaur,
-        Charmander,
-        Squirtle,
-        Pikachu,
-        Rattata,
-        Diglett,
-        Geodude,
-        Dratini,
-        Dragonite,
-	Mew,
-	ShinyEevee,
-
-    };
-
+private static readonly HashSet<string> All = new(StringComparer.Ordinal)
+{
+    Bulbasaur,
+    Charmander,
+    Squirtle,
+    Pikachu,
+    Rattata,
+    Diglett,
+    Geodude,
+    Dratini,
+    Mew,
+    Dragonite,
+    ShinyEevee,
+    Random
+};
     public static bool IsValid(string? theme) => theme is not null && All.Contains(theme);
 }

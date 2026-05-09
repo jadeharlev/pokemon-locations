@@ -1,10 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using NSubstitute;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
+using PokemonLocations.WebServer.Clients;
 using PokemonLocations.WebServer.Database.Repositories;
 using PokemonLocations.WebServer.Models;
+using PokemonLocations.WebServer.Tests.Imaging;
 using PokemonLocations.WebServer.Tests.Infrastructure;
 using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
@@ -264,6 +267,7 @@ public class AccountControllerTests {
     [InlineData("charmander")]
     [InlineData("squirtle")]
     [InlineData("pikachu")]
+    [InlineData("random")]
     public async Task UpdateThemeReturns204AndPersists(string theme) {
         await ResetUsersAsync();
         await SeedUserAsync("red@example.com", "pikachu123", "Red");
@@ -360,6 +364,36 @@ public class AccountControllerTests {
 
         var body = await ReadJsonAsync(response);
         Assert.Equal(JsonValueKind.Null, body.GetProperty("permanentPlanetName").ValueKind);
+    }
+
+    [Fact]
+    public async Task DeleteAccountAlsoRemovesUploadDirectory() {
+        await TestHelpers.ResetUsersAsync(postgresFixture.ConnectionString);
+        await TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var apiClient = Substitute.For<IPokemonLocationsApiClient>();
+        apiClient.ExistsAsync(Arg.Any<string>()).Returns(true);
+        var factory = new PokemonLocationsWebServerFactory(
+            postgresFixture.ConnectionString, redisFixture.ConnectionString) { ApiClient = apiClient };
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
+
+        using (var c = new MultipartFormDataContent {
+            { new ByteArrayContent(PokemonLocations.WebServer.Tests.Imaging.TestImageFixtures.CreatePng(64, 64))
+                { Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") } },
+              "file", "shot.png" }
+        }) {
+            var post = await client.PostAsync("/api/me/locations/1/images", c);
+            Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        }
+
+        var userId = await GetUserIdAsync(postgresFixture.ConnectionString, "red@example.com");
+        var userDir = Path.Combine(factory.UploadRoot, userId.ToString());
+        Assert.True(Directory.Exists(userDir));
+
+        var delete = await client.DeleteAsync("/account");
+
+        Assert.Equal(HttpStatusCode.NoContent, delete.StatusCode);
+        Assert.False(Directory.Exists(userDir));
     }
 
     private Task SeedUserAsync(string email, string password, string displayName) =>

@@ -1166,7 +1166,7 @@ function setupActions() {
 
                 if (!res.ok) {
                     applyTheme(previous);
-                    alert('Failed to update theme.');
+                    await showAlert('Failed to update theme.', { title: 'Error' });
                     return;
                 }
 
@@ -1174,7 +1174,7 @@ function setupActions() {
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);
-                alert('Failed to update theme.');
+                await showAlert('Failed to update theme.', { title: 'Error' });
                 console.error('Theme update failed:', e.message);
             }
         });

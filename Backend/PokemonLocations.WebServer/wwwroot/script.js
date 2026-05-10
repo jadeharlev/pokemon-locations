@@ -801,7 +801,8 @@ const THEME_DISPLAY_NAMES = {
     dratini: 'Dratini',
     mew: 'Mew',
     dragonite: 'Dragonite',
-    'shiny-eevee': 'Shiny Eevee'
+    'shiny-eevee': 'Shiny Eevee',
+    random: 'Random'
 };
 
 const formatThemeName = (theme) => THEME_DISPLAY_NAMES[theme] || '';
@@ -1158,7 +1159,7 @@ function setupActions() {
                 const res = await PLAuth.authFetch('/account/theme', {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ theme })
+                    body: JSON.stringify({ theme: selectedTheme })
                 });
 
                 if (!res.ok) {
@@ -1167,7 +1168,7 @@ function setupActions() {
                     return;
                 }
 
-                updateDisplayedThemeName(theme);
+                updateDisplayedThemeName(selectedTheme);
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);

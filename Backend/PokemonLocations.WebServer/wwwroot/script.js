@@ -831,39 +831,31 @@ function getUnlockedThemes() {
 function updateThemeButtons() {
     document.querySelectorAll('.theme-option').forEach(btn => {
         const theme = btn.dataset.theme;
+        btn.removeAttribute('title');
 
         if (theme === 'random') {
             btn.disabled = false;
             btn.classList.remove('theme-locked');
             btn.removeAttribute('aria-disabled');
-            btn.title = 'Randomly choose from your unlocked themes';
-        } else {
-            const unlocked = isThemeUnlocked(theme);
-            const rule = THEME_UNLOCK_RULES[theme];
-
-            // Do not disable the button because disabled buttons do not hover well.
-            // Instead, visually lock it and block selection in the click handler.
-            btn.disabled = false;
-            btn.classList.toggle('theme-locked', !unlocked);
-            btn.setAttribute('aria-disabled', String(!unlocked));
-
-            if (!unlocked && rule) {
-                btn.textContent = formatThemeName(theme);
-                btn.title = `Unlock condition: ${rule.label}`;
-            } else {
-                btn.textContent = btn.dataset.label || formatThemeName(theme);
-                btn.title = '';
-            }
+            btn.dataset.tooltip = 'Randomly choose from your unlocked themes';
+            return;
         }
 
-        const tooltip = bootstrap.Tooltip.getInstance(btn);
-        if (tooltip) {
-            if (btn.title) {
-                tooltip.setContent({ '.tooltip-inner': btn.title });
-                tooltip.enable();
-            } else {
-                tooltip.disable();
-            }
+        const unlocked = isThemeUnlocked(theme);
+        const rule = THEME_UNLOCK_RULES[theme];
+
+        // Do not disable the button because disabled buttons do not hover well.
+        // Instead, visually lock it and block selection in the click handler.
+        btn.disabled = false;
+        btn.classList.toggle('theme-locked', !unlocked);
+        btn.setAttribute('aria-disabled', String(!unlocked));
+
+        if (!unlocked && rule) {
+            btn.textContent = formatThemeName(theme);
+            btn.dataset.tooltip = `Unlock condition: ${rule.label}`;
+        } else {
+            btn.textContent = btn.dataset.label || formatThemeName(theme);
+            btn.dataset.tooltip = '';
         }
     });
 }
@@ -1185,8 +1177,58 @@ function setupActions() {
         });
     });
 
+    setupThemeTooltip();
+}
+
+function setupThemeTooltip() {
+    const tooltipEl = document.getElementById('theme-tooltip');
+    if (!tooltipEl) return;
+
+    const CURSOR_OFFSET_X = 14;
+    const CURSOR_OFFSET_Y = 18;
+    let activeBtn = null;
+
+    const positionTooltip = (clientX, clientY) => {
+        const rect = tooltipEl.getBoundingClientRect();
+        let x = clientX + CURSOR_OFFSET_X;
+        let y = clientY + CURSOR_OFFSET_Y;
+        // Keep tooltip on-screen horizontally; flip to left of cursor if needed.
+        if (x + rect.width > window.innerWidth - 8) {
+            x = clientX - rect.width - CURSOR_OFFSET_X;
+        }
+        if (y + rect.height > window.innerHeight - 8) {
+            y = clientY - rect.height - CURSOR_OFFSET_Y;
+        }
+        tooltipEl.style.transform = `translate(${x}px, ${y}px)`;
+    };
+
+    const handleEnter = (event) => {
+        const btn = event.target.closest('.theme-option');
+        if (!btn) return;
+        const text = btn.dataset.tooltip;
+        if (!text) return;
+        activeBtn = btn;
+        tooltipEl.textContent = text;
+        positionTooltip(event.clientX, event.clientY);
+        tooltipEl.classList.add('visible');
+    };
+
+    const handleMove = (event) => {
+        if (!activeBtn) return;
+        positionTooltip(event.clientX, event.clientY);
+    };
+
+    const handleLeave = (event) => {
+        const btn = event.target.closest('.theme-option');
+        if (!btn || btn !== activeBtn) return;
+        activeBtn = null;
+        tooltipEl.classList.remove('visible');
+    };
+
     document.querySelectorAll('.theme-option').forEach(btn => {
-        new bootstrap.Tooltip(btn, { placement: 'right', trigger: 'hover focus' });
+        btn.addEventListener('mouseenter', handleEnter);
+        btn.addEventListener('mousemove', handleMove);
+        btn.addEventListener('mouseleave', handleLeave);
     });
 }
 

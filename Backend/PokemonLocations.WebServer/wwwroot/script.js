@@ -831,12 +831,13 @@ function getUnlockedThemes() {
 function updateThemeButtons() {
     document.querySelectorAll('.theme-option').forEach(btn => {
         const theme = btn.dataset.theme;
+        btn.removeAttribute('title');
 
         if (theme === 'random') {
             btn.disabled = false;
             btn.classList.remove('theme-locked');
             btn.removeAttribute('aria-disabled');
-            btn.title = 'Randomly choose from your unlocked themes';
+            btn.dataset.tooltip = 'Randomly choose from your unlocked themes';
             return;
         }
 
@@ -851,10 +852,10 @@ function updateThemeButtons() {
 
         if (!unlocked && rule) {
             btn.textContent = formatThemeName(theme);
-            btn.title = `Unlock condition: ${rule.label}`;
+            btn.dataset.tooltip = `Unlock condition: ${rule.label}`;
         } else {
             btn.textContent = btn.dataset.label || formatThemeName(theme);
-            btn.title = '';
+            btn.dataset.tooltip = '';
         }
     });
 }
@@ -921,7 +922,7 @@ async function activateShinyEeveeTheme() {
         });
 
         if (!res.ok) {
-            alert('Shiny Eevee activated, but it could not be saved.');
+            await showAlert('Shiny Eevee activated, but it could not be saved.', { title: 'Error' });
             return;
         }
 
@@ -933,7 +934,7 @@ async function activateShinyEeveeTheme() {
         }
     } catch (e) {
         console.error('Failed to save Shiny Eevee theme:', e.message);
-        alert('Shiny Eevee activated, but it could not be saved.');
+        await showAlert('Shiny Eevee activated, but it could not be saved.', { title: 'Error' });
     }
 }
 
@@ -1005,10 +1006,80 @@ async function loadStats() {
 
 
 
+// ─── Custom dialog helpers ───
+// Promise-based replacements for native alert() / confirm().
+// Resolves true on confirm-click, false on any dismiss path
+// (Cancel, X, Escape, backdrop click).
+function showDialog({ title, message, confirmText, cancelText, variant }) {
+    const modalEl = document.getElementById('dialog-modal');
+    const titleEl = document.getElementById('dialog-title');
+    const messageEl = document.getElementById('dialog-message');
+    const confirmBtn = document.getElementById('dialog-confirm');
+    const cancelBtn = document.getElementById('dialog-cancel');
+
+    titleEl.textContent = title;
+    messageEl.textContent = message;
+    confirmBtn.textContent = confirmText;
+
+    confirmBtn.classList.remove('btn-primary', 'btn-danger');
+    confirmBtn.classList.add(variant === 'danger' ? 'btn-danger' : 'btn-primary');
+
+    if (cancelText === null) {
+        cancelBtn.style.display = 'none';
+    } else {
+        cancelBtn.style.display = '';
+        cancelBtn.textContent = cancelText;
+    }
+
+    return new Promise(resolve => {
+        let resolved = false;
+        const onConfirm = () => {
+            resolved = true;
+            modal.hide();
+        };
+        const onHidden = () => {
+            confirmBtn.removeEventListener('click', onConfirm);
+            modalEl.removeEventListener('hidden.bs.modal', onHidden);
+            resolve(resolved);
+        };
+        confirmBtn.addEventListener('click', onConfirm);
+        modalEl.addEventListener('hidden.bs.modal', onHidden);
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    });
+}
+
+function showAlert(message, opts = {}) {
+    return showDialog({
+        title: opts.title ?? 'Notice',
+        message,
+        confirmText: opts.buttonText ?? 'OK',
+        cancelText: null,
+        variant: 'default'
+    });
+}
+
+function showConfirm(message, opts = {}) {
+    return showDialog({
+        title: opts.title ?? 'Confirm',
+        message,
+        confirmText: opts.confirmText ?? 'Confirm',
+        cancelText: opts.cancelText ?? 'Cancel',
+        variant: opts.variant ?? 'default'
+    });
+}
+
 // ─── Action buttons ───
 function setupActions() {
     document.getElementById('btn-delete-account').addEventListener('click', async () => {
-        if (!confirm('Are you sure you want to delete your account? This cannot be undone.')) return;
+        const ok = await showConfirm('Are you sure you want to delete your account? This cannot be undone.', {
+            title: 'Delete account',
+            confirmText: 'Delete account',
+            cancelText: 'Cancel',
+            variant: 'danger'
+        });
+        if (!ok) return;
 
         try {
             const res = await PLAuth.authFetch('/account', { method: 'DELETE' });
@@ -1016,10 +1087,10 @@ function setupActions() {
                 PLAuth.clearCreds();
                 window.location.href = '/signin.html';
             } else {
-                alert('Failed to delete account.');
+                await showAlert('Failed to delete account.', { title: 'Error' });
             }
         } catch (e) {
-            alert('Failed to delete account.');
+            await showAlert('Failed to delete account.', { title: 'Error' });
             console.error('Delete account failed:', e.message);
         }
     });
@@ -1061,7 +1132,7 @@ function setupActions() {
                 weatherState.homePlanetName = previousName;
                 weatherState.homePlanetTemp = previousTemp;
                 renderCurrentLocation();
-                alert('Failed to set location.');
+                await showAlert('Failed to set location.', { title: 'Error' });
                 return;
             }
             locationModal.hide();
@@ -1070,7 +1141,7 @@ function setupActions() {
             weatherState.homePlanetTemp = previousTemp;
             renderCurrentLocation();
             console.error('Set location failed:', e.message);
-            alert('Failed to set location.');
+            await showAlert('Failed to set location.', { title: 'Error' });
         }
     });
 
@@ -1078,11 +1149,7 @@ function setupActions() {
         btn.addEventListener('click', async () => {
             const selectedTheme = btn.dataset.theme;
             const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
-
-            if (!isThemeUnlocked(theme)) {
-                alert(`This theme is locked. ${THEME_UNLOCK_RULES[theme].label} to unlock it.`);
-                return;
-            }
+            if (!isThemeUnlocked(theme)) return;
 
             const previous = document.documentElement.getAttribute('data-theme') || 'bulbasaur';
             applyTheme(theme);
@@ -1096,7 +1163,7 @@ function setupActions() {
 
                 if (!res.ok) {
                     applyTheme(previous);
-                    alert('Failed to update theme.');
+                    await showAlert('Failed to update theme.', { title: 'Error' });
                     return;
                 }
 
@@ -1104,10 +1171,64 @@ function setupActions() {
                 themeModal.hide();
             } catch (e) {
                 applyTheme(previous);
-                alert('Failed to update theme.');
+                await showAlert('Failed to update theme.', { title: 'Error' });
                 console.error('Theme update failed:', e.message);
             }
         });
+    });
+
+    setupThemeTooltip();
+}
+
+function setupThemeTooltip() {
+    const tooltipEl = document.getElementById('theme-tooltip');
+    if (!tooltipEl) return;
+
+    const CURSOR_OFFSET_X = 14;
+    const CURSOR_OFFSET_Y = 18;
+    let activeBtn = null;
+
+    const positionTooltip = (clientX, clientY) => {
+        const rect = tooltipEl.getBoundingClientRect();
+        let x = clientX + CURSOR_OFFSET_X;
+        let y = clientY + CURSOR_OFFSET_Y;
+        // Keep tooltip on-screen horizontally; flip to left of cursor if needed.
+        if (x + rect.width > window.innerWidth - 8) {
+            x = clientX - rect.width - CURSOR_OFFSET_X;
+        }
+        if (y + rect.height > window.innerHeight - 8) {
+            y = clientY - rect.height - CURSOR_OFFSET_Y;
+        }
+        tooltipEl.style.transform = `translate(${x}px, ${y}px)`;
+    };
+
+    const handleEnter = (event) => {
+        const btn = event.target.closest('.theme-option');
+        if (!btn) return;
+        const text = btn.dataset.tooltip;
+        if (!text) return;
+        activeBtn = btn;
+        tooltipEl.textContent = text;
+        positionTooltip(event.clientX, event.clientY);
+        tooltipEl.classList.add('visible');
+    };
+
+    const handleMove = (event) => {
+        if (!activeBtn) return;
+        positionTooltip(event.clientX, event.clientY);
+    };
+
+    const handleLeave = (event) => {
+        const btn = event.target.closest('.theme-option');
+        if (!btn || btn !== activeBtn) return;
+        activeBtn = null;
+        tooltipEl.classList.remove('visible');
+    };
+
+    document.querySelectorAll('.theme-option').forEach(btn => {
+        btn.addEventListener('mouseenter', handleEnter);
+        btn.addEventListener('mousemove', handleMove);
+        btn.addEventListener('mouseleave', handleLeave);
     });
 }
 

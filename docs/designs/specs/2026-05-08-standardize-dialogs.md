@@ -1,9 +1,9 @@
 # SE498-93: Standardize browser dialogs to themed custom modals — Design
 
-**Status:** Draft, pending implementation
+**Status:** Implemented (2026-05-09)
 **Ticket:** SE498-93 (Jira)
 **Author:** Maks Popov
-**Date:** 2026-05-08
+**Date:** 2026-05-08, updated 2026-05-09 to cover post-merge eevee-easter-egg sites
 
 ## 1. Goal
 
@@ -20,6 +20,13 @@ Replace every native browser `alert()` / `confirm()` / `prompt()` in the fronten
 | 942, 951 | `alert()` | "Failed to set location." | Home-planet update failure paths (inside `#location-modal`) |
 | 960 | `alert()` | `This theme is locked. <rule.label> to unlock it.` | Locked-theme click (inside `#theme-modal`) |
 | 975, 983 | `alert()` | "Failed to update theme." | Theme update failure paths (inside `#theme-modal`) |
+
+After this branch was scoped, the eevee easter-egg PR (#61) introduced two more native sites in `activateShinyEeveeTheme()`. Folded into this work during the rebase onto main:
+
+| Line | Type | Message | Context |
+|---|---|---|---|
+| 925 | `alert()` | "Shiny Eevee activated, but it could not be saved." | Konami-code easter egg, HTTP failure path |
+| 937 | `alert()` | "Shiny Eevee activated, but it could not be saved." | Konami-code easter egg, exception path |
 
 `prompt()` — none.
 
@@ -134,10 +141,21 @@ await showAlert('Failed to update theme.', { title: 'Error' });
 
 ```js
 const selectedTheme = btn.dataset.theme;
-const resolved = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
-if (!isThemeUnlocked(resolved)) return;  // no-op; hover tooltip already conveys the condition
+const theme = selectedTheme === 'random' ? pickRandomTheme() : selectedTheme;
+if (!isThemeUnlocked(theme)) return;  // no-op; hover tooltip already conveys the condition
 // ... rest unchanged
 ```
+
+**Shiny Eevee easter egg failure** (`script.js:925, 937`, post-merge addition):
+
+```js
+// before
+alert('Shiny Eevee activated, but it could not be saved.');
+// after
+await showAlert('Shiny Eevee activated, but it could not be saved.', { title: 'Error' });
+```
+
+The enclosing `activateShinyEeveeTheme` function is already `async`, so `await` is valid in both branches.
 
 ### 3.4 Locked-theme visual cleanup
 
@@ -152,20 +170,19 @@ In `index.html`, remove the lock emoji rule:
 /* after — entire rule deleted */
 ```
 
-Replace the native `title="..."` tooltip on locked theme buttons with a Bootstrap tooltip:
+Replace the native `title="..."` tooltip on locked theme buttons with a custom themed cursor-following tooltip:
 
-- The existing `updateThemeButtons` function (`script.js:803`) sets `btn.title = ...` for locked themes. Bootstrap tooltips read the same `title` attribute by default, so the dynamic title-setting logic stays unchanged.
-- Initialize Bootstrap tooltips once at page load on every `.theme-option` button. Tooltips on buttons without a title attribute (i.e., unlocked themes) silently no-op.
-- Use placement `right` and trigger `hover focus` so keyboard users see it too.
+- A single `<div id="theme-tooltip" class="theme-tooltip" role="tooltip">` lives outside any modal so it can position freely without being clipped by `.modal-body { overflow-x: hidden }`.
+- `updateThemeButtons` writes the tooltip text to `btn.dataset.tooltip` (and clears `btn.title` to suppress the browser-native tooltip).
+- `setupThemeTooltip()` attaches `mouseenter` / `mousemove` / `mouseleave` listeners to each `.theme-option`. On enter it reads `dataset.tooltip` and positions the floating element 14px right and 18px below the cursor; on move it tracks; on leave it hides. Off-screen edges flip the tooltip to the opposite side of the cursor.
+- CSS styles the tooltip with `var(--theme-primary-dark)` background and white text, with a short 80ms fade for visual polish.
 
-```js
-// New: at the end of setupActions() (or in DOMContentLoaded right after theme buttons render)
-document.querySelectorAll('.theme-option').forEach(btn => {
-    new bootstrap.Tooltip(btn, { placement: 'right', trigger: 'hover focus' });
-});
-```
+**Rationale for the custom approach over Bootstrap Tooltip:**
+- Bootstrap Tooltip anchors to the trigger element and does not support cursor-following.
+- Bootstrap Tooltip caches the trigger's `title` into `data-bs-original-title` at init; later writes to `btn.title` from `updateThemeButtons` (which re-runs after stat changes that unlock themes) do not propagate to the rendered tooltip without manual `setContent` calls.
+- The custom tooltip reads `btn.dataset.tooltip` on every mouseenter, so it always reflects the current state.
 
-When `updateThemeButtons` re-runs (after a stat change unlocks a theme), the title attribute changes. Bootstrap Tooltip reads from the `title` attribute on each show — no manual refresh needed.
+The custom tooltip introduces ~50 LOC of JS (one helper plus event wiring) and ~25 LOC of CSS. The rest of the site continues to use Bootstrap for modals (`#dialog-modal`, `#theme-modal`, `#location-modal`).
 
 ### 3.5 Modal-on-modal handling
 
@@ -210,10 +227,11 @@ After implementation, run through every native-dialog removal site to confirm:
 | Trigger account-delete failure (manually fail backend, e.g., stop API) | Custom error modal appears, title "Error", body "Failed to delete account.", single OK button. |
 | Update home planet with stack down | Same — error modal, not browser alert. Theme picker can stack on top, no native dialogs. |
 | Update theme with stack down | Same — error modal stacked over the theme picker. Verify modal-on-modal looks acceptable. |
-| Hover any locked theme button | Bootstrap tooltip appears (themed, positioned right) showing the unlock condition. |
-| Click any locked theme button | Nothing happens (no alert, no theme change). Tooltip stays visible while hovering. |
+| Activate Shiny Eevee easter egg via Konami code with stack down | Themed Error modal: title "Error", body "Shiny Eevee activated, but it could not be saved." Theme still applies locally. |
+| Hover any locked theme button | Custom themed tooltip appears immediately, follows the cursor (offset bottom-right), showing the unlock condition. |
+| Click any locked theme button | Nothing happens (no alert, no theme change). Tooltip continues to follow the cursor while hovering. |
 | Inspect the DOM | No 🔒 emoji on any locked theme. |
-| `grep -nE "\b(alert\|confirm\|prompt)\(" wwwroot/script.js` | Returns zero matches. |
+| `grep -nE "(^\|[^.a-zA-Z])(alert\|confirm\|prompt)\(" wwwroot/script.js \| grep -v "^[0-9]*:[[:space:]]*//"` | Returns zero matches (excludes the banner doc-comment on line ~888). |
 
 ### 5.3 Accessibility (manual)
 

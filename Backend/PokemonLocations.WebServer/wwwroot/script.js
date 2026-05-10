@@ -922,7 +922,7 @@ async function activateShinyEeveeTheme() {
         });
 
         if (!res.ok) {
-            alert('Shiny Eevee activated, but it could not be saved.');
+            await showAlert('Shiny Eevee activated, but it could not be saved.', { title: 'Error' });
             return;
         }
 
@@ -934,7 +934,7 @@ async function activateShinyEeveeTheme() {
         }
     } catch (e) {
         console.error('Failed to save Shiny Eevee theme:', e.message);
-        alert('Shiny Eevee activated, but it could not be saved.');
+        await showAlert('Shiny Eevee activated, but it could not be saved.', { title: 'Error' });
     }
 }
 

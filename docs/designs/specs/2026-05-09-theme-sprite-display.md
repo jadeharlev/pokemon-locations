@@ -37,6 +37,10 @@ The Jira AC explicitly mentions both URL patterns (REST API and direct GitHub). 
 2. No PokeAPI rate-limit exposure (sprites repo is on GitHub's CDN).
 3. Browser handles caching, loading, and errors via standard `<img>` semantics — no JS fetch wrapper needed.
 
+**Verified:** all 11 sprite URLs return HTTP 200. File sizes range from 76 KB (Geodude) to 203 KB (Bulbasaur), averaging ~135 KB. A user who cycles through every theme in one session downloads ~1.5 MB total.
+
+**Cache behavior note:** `raw.githubusercontent.com` serves with `Cache-Control: max-age=300` (5 minutes) plus a strong `ETag`. Within 5 minutes the browser serves from memory cache (no network). After 5 minutes the browser sends a conditional `If-None-Match` and gets a cheap `304 Not Modified` (sub-1KB roundtrip) — not a full re-download. Acceptable.
+
 ### 3.2 Theme → sprite URL map
 
 A single hardcoded JS const in `script.js`. Pokémon IDs are stable (they have not changed since Gen 1 was first cataloged), so this map is effectively immutable.
@@ -106,11 +110,11 @@ Container reserves a fixed `180px` height regardless of image load state, preven
 A single new function in `script.js`:
 
 ```js
-function updateThemeSprite(theme) {
+function updateThemeSprite(name) {
     const img = document.getElementById('theme-sprite');
     if (!img) return;
 
-    const url = THEME_TO_SPRITE_URL[theme];
+    const url = THEME_TO_SPRITE_URL[name];
     if (!url) {
         img.classList.remove('loaded');
         img.removeAttribute('src');
@@ -118,25 +122,30 @@ function updateThemeSprite(theme) {
     }
 
     img.classList.remove('loaded');
-    img.alt = `${formatThemeName(theme)} sprite`;
+    img.alt = `${formatThemeName(name)} sprite`;
     img.onload = () => img.classList.add('loaded');
     img.onerror = () => {
-        console.warn(`Theme sprite failed to load for ${theme}: ${url}`);
+        console.warn(`Theme sprite failed to load for ${name}: ${url}`);
         img.classList.remove('loaded');
     };
     img.src = url;
 }
 ```
 
-Hooked into `applyTheme(theme)` as the last statement:
+Hooked into the existing `applyTheme(name)` function as the last statement. The current `applyTheme` body (`script.js:768`) is:
 
 ```js
-function applyTheme(theme) {
-    document.documentElement.setAttribute('data-theme', theme);
-    document.getElementById('theme-stylesheet').href = `/css/themes/${theme}.css`;
-    updateThemeSprite(theme);  // NEW
+function applyTheme(name) {
+    if (!VALID_THEMES.includes(name)) name = 'bulbasaur';
+    document.documentElement.setAttribute('data-theme', name);
+    const link = document.getElementById('theme-stylesheet');
+    if (link) link.href = `/css/themes/${name}.css`;
+    sessionStorage.setItem(THEME_CACHE_KEY, name);
+    updateThemeSprite(name);  // NEW
 }
 ```
+
+The existing `if (!VALID_THEMES.includes(name)) name = 'bulbasaur';` guard means `updateThemeSprite` always receives a known theme. The defensive `if (!url)` branch in `updateThemeSprite` is therefore unreachable in practice, but it remains as a safety net for any future code path that might call `updateThemeSprite` directly.
 
 Because `applyTheme` is the single chokepoint for every theme change, this one hook covers:
 
@@ -149,7 +158,11 @@ No separate initial render call is needed.
 
 ### 3.5 Random theme behavior
 
-Random preference is resolved to a concrete theme **before** `applyTheme` is called (in both `loadUserInfo` and the theme picker click handler). So the sprite naturally shows the resolved theme's Pokémon — no special-casing in `updateThemeSprite`.
+Random preference is resolved to a concrete theme **before** `applyTheme` is called (in both `loadUserInfo` at `script.js:973` and the theme picker click handler at `script.js:~1149`). So the sprite naturally shows the resolved theme's Pokémon — no special-casing in `updateThemeSprite`.
+
+### 3.6 Existing JS query selectors
+
+`script.js:810` queries `#user-info p:nth-child(2) strong` to update the theme name label. This selector is scoped inside `#user-info` and does not depend on what comes after `#user-info` in the DOM. Inserting `.theme-sprite-container` between `#user-info` and `.stats-section` does not affect this selector or any other existing query.
 
 ## 4. Edge Cases
 

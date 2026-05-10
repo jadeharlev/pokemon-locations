@@ -97,8 +97,9 @@ public class UserImagesControllerTests {
         Assert.Equal($"/api/me/locations/1/images/{imageId}", body.GetProperty("imageUrl").GetString());
         Assert.Equal("shot.png", body.GetProperty("originalFilename").GetString());
 
-        Assert.True(Directory.EnumerateFiles(factory.UploadRoot, "*", SearchOption.AllDirectories)
-                             .Any(p => p.EndsWith($"{imageId}.png")));
+        Assert.Contains(
+            Directory.EnumerateFiles(factory.UploadRoot, "*", SearchOption.AllDirectories),
+            p => p.EndsWith($"{imageId}.png"));
     }
 
     [Fact]

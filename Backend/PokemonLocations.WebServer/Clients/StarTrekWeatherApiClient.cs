@@ -27,4 +27,11 @@ public class StarTrekWeatherApiClient : IStarTrekWeatherApiClient {
         var json = await response.Content.ReadAsStringAsync(ct);
         return JsonSerializer.Deserialize<Planet>(json, JsonOptions);
     }
+
+    public Task<HttpResponseMessage> GetImageAsync(string fileName, CancellationToken ct = default) {
+        return httpClient.GetAsync(
+            $"images/planets/{Uri.EscapeDataString(fileName)}",
+            HttpCompletionOption.ResponseHeadersRead,
+            ct);
+    }
 }

@@ -142,7 +142,12 @@ The user logs out by clicking the logout control in `index.html`. This clears `s
 | `500 Internal Server Error` | "Something went wrong. Please try again later." |
 | `502 Bad Gateway` (API unreachable from web server) | Same as 500 — generic failure message |
 
-Errors are displayed inline within page sections, never as `alert()` or `window.confirm()`.
+Errors are displayed inline within page sections, never as native `alert()` or `window.confirm()`. When a modal-style notification is required (e.g., destructive action confirmation, or an error that must interrupt a modal flow), use the themed Promise-based helpers in `script.js`:
+
+- `showAlert(message, opts?)` — single-button informational dialog. Resolves when dismissed.
+- `showConfirm(message, opts?)` — two-button confirmation dialog. Resolves `true` on confirm, `false` on Cancel/Escape/backdrop. Pass `variant: 'danger'` for destructive actions.
+
+Both helpers drive `#dialog-modal` (a Bootstrap 5 modal in `index.html`) and inherit the active theme via CSS variables. Locked-theme buttons and the gallery delete-X use bespoke patterns (cursor-following tooltip and inline expand-to-confirm respectively); for everything else, prefer `showAlert`/`showConfirm` over native dialogs.
 
 ## 6. Theming
 

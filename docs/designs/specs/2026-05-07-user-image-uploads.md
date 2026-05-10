@@ -19,7 +19,7 @@ Let an authenticated user upload their own photos for any location and see those
 | Total per-user cap | None |
 | Allowed file types | `image/png`, `image/jpeg`, `image/webp` (HEIC explicitly out of scope — no browser support without server-side conversion, deferred to a future ticket) |
 | Upload UX | Themed "+" button as the primary affordance, drag-drop on the gallery box as a bonus path. Multi-select supported on both paths. |
-| Delete UX | Hover-revealed "X" on user-uploaded slides only (canonical covers don't get the X). Native `confirm()` before delete. |
+| Delete UX | Hover-revealed "X" on user-uploaded slides only (canonical covers don't get the X). Inline expand-to-confirm pattern: first click expands the X into a "Delete?" pill, second click within ~3s confirms; clicking elsewhere or waiting cancels. No native `confirm()`. |
 | At-cap behavior | Upload button disabled at 20; server still validates and returns 400 if a request slips through |
 | Server-side processing | Auto-resize at upload via SkiaSharp: longest edge clamped to 2000 px, format preserved |
 
@@ -415,10 +415,13 @@ Toast message format: `"3 uploaded · 1 skipped (too large) · 1 skipped (would 
 
 ### 7.5 Delete Flow
 
-1. User clicks the slide's "X" → native `confirm("Delete this image?")`.
-2. On confirm: `DELETE /api/me/locations/{locationId}/images/{imageId}` via `PLAuth.authFetch` (full path, do not double-prefix).
-3. On 204: revoke the slide's blob URL via `URL.revokeObjectURL`, remove image from `location.userImages`, call `renderGallery` again.
-4. On 404 or other failure: surface a brief error toast, no in-memory mutation.
+1. User clicks the slide's "X" → the "X" element gains the `confirming` class and visually expands to a "Delete?" pill, triggered by `slide-delete.confirming` CSS rules.
+2. While in the confirming state, a click anywhere outside the pill (or a 3-second timeout) reverts the pill to the default "X" — no delete happens.
+3. A second click on the now-expanded pill within the timeout triggers `DELETE /api/me/locations/{locationId}/images/{imageId}` via `PLAuth.authFetch` (full path, do not double-prefix).
+4. On 204: revoke the slide's blob URL via `URL.revokeObjectURL`, remove image from `location.userImages`, call `renderGallery` again.
+5. On 404 or other failure: surface a brief error toast, no in-memory mutation.
+
+This inline expand-to-confirm pattern replaces the native `confirm()` originally specified, so the delete flow stays themed and never leaves the gallery context.
 
 ### 7.6 Drag-Drop Event Handling
 

@@ -1160,6 +1160,73 @@ function setHomePlanet(name) {
         ? randomInt(planet.minTemp, planet.maxTemp)
         : null;
     renderCurrentLocation();
+    if (planet) loadPlanetImageBlobUrl(planet);
+}
+
+const planetImageBlobUrlCache = new Map();
+
+function proxiedPlanetImagePath(imageUrl) {
+    if (!imageUrl) return null;
+    const match = imageUrl.match(/\/images\/planets\/([^\/?#]+)$/i);
+    return match ? `/planets/images/${match[1]}` : null;
+}
+
+async function loadPlanetImageBlobUrl(planet) {
+    const path = proxiedPlanetImagePath(planet.imageUrl);
+    if (!path) return '';
+    if (planetImageBlobUrlCache.has(planet.name)) {
+        return planetImageBlobUrlCache.get(planet.name);
+    }
+    try {
+        const res = await apiFetch(path);
+        if (!res.ok) return '';
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        planetImageBlobUrlCache.set(planet.name, url);
+        return url;
+    } catch {
+        return '';
+    }
+}
+
+async function showPlanetCard() {
+    const card = document.getElementById('planet-card');
+    const anchor = document.getElementById('current-location');
+    if (!card || !anchor) return;
+    const planet = findPlanet(weatherState.homePlanetName);
+    if (!planet) return;
+
+    document.getElementById('planet-card-name').textContent = planet.name;
+    document.getElementById('planet-card-description').textContent = planet.description ?? '';
+    const img = document.getElementById('planet-card-image');
+    img.alt = planet.name;
+    img.src = '';
+
+    const rect = anchor.getBoundingClientRect();
+    card.style.top = `${rect.bottom + 8}px`;
+    card.style.left = `${Math.max(8, rect.left)}px`;
+    card.hidden = false;
+    card.setAttribute('aria-hidden', 'false');
+
+    const blobUrl = await loadPlanetImageBlobUrl(planet);
+    if (blobUrl && !card.hidden) img.src = blobUrl;
+}
+
+function hidePlanetCard() {
+    const card = document.getElementById('planet-card');
+    if (!card) return;
+    card.hidden = true;
+    card.setAttribute('aria-hidden', 'true');
+}
+
+function setupPlanetCardHover() {
+    const anchor = document.getElementById('current-location');
+    if (!anchor) return;
+    anchor.addEventListener('mouseenter', showPlanetCard);
+    anchor.addEventListener('mouseleave', hidePlanetCard);
+    anchor.addEventListener('focus', showPlanetCard);
+    anchor.addEventListener('blur', hidePlanetCard);
+    anchor.addEventListener('click', hidePlanetCard);
 }
 
 function populateLocationModal() {
@@ -1275,6 +1342,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     startWeatherTicker();
+    setupPlanetCardHover();
 
     // Load all data in parallel where possible
     await Promise.all([

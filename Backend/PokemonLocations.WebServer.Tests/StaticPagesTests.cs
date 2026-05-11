@@ -91,6 +91,18 @@ public class StaticPagesTests {
     }
 
     [Fact]
+    public async Task WeatherTickerIsLinkedToPlanetCardForAccessibility() {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Matches(
+            @"id=""weather-ticker""[^>]*aria-describedby=""planet-card""",
+            html);
+    }
+
+    [Fact]
     public async Task PlanetCardHasImageNameAndDescriptionSlots() {
         var client = factory.CreateClient();
 

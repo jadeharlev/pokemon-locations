@@ -1246,7 +1246,9 @@ const TICKER_FRAME_MS = 4000;
 const weatherState = {
     planets: [],
     homePlanetName: null,
-    homePlanetTemp: null
+    homePlanetTemp: null,
+    tickerPlanetName: null,
+    tickerIntervalId: null
 };
 
 function randomInt(min, max) {
@@ -1311,12 +1313,9 @@ async function loadPlanetImageBlobUrl(planet) {
     }
 }
 
-async function showPlanetCard() {
+async function showPlanetCard(planet, anchor, align = 'left') {
     const card = document.getElementById('planet-card');
-    const anchor = document.getElementById('current-location');
-    if (!card || !anchor) return;
-    const planet = findPlanet(weatherState.homePlanetName);
-    if (!planet) return;
+    if (!card || !anchor || !planet) return;
 
     document.getElementById('planet-card-name').textContent = planet.name;
     document.getElementById('planet-card-description').textContent = planet.description ?? '';
@@ -1325,8 +1324,14 @@ async function showPlanetCard() {
     img.src = '';
 
     const rect = anchor.getBoundingClientRect();
+    const cardWidth = card.offsetWidth || 280;
     card.style.top = `${rect.bottom + 8}px`;
-    card.style.left = `${Math.max(8, rect.left)}px`;
+    if (align === 'right') {
+        const left = Math.max(8, Math.min(rect.right - cardWidth, window.innerWidth - cardWidth - 8));
+        card.style.left = `${left}px`;
+    } else {
+        card.style.left = `${Math.max(8, rect.left)}px`;
+    }
     card.hidden = false;
     card.setAttribute('aria-hidden', 'false');
 
@@ -1341,14 +1346,68 @@ function hidePlanetCard() {
     card.setAttribute('aria-hidden', 'true');
 }
 
-function setupPlanetCardHover() {
+function setupCurrentLocationHover() {
     const anchor = document.getElementById('current-location');
     if (!anchor) return;
-    anchor.addEventListener('mouseenter', showPlanetCard);
+    const show = () => showPlanetCard(findPlanet(weatherState.homePlanetName), anchor, 'left');
+    anchor.addEventListener('mouseenter', show);
     anchor.addEventListener('mouseleave', hidePlanetCard);
-    anchor.addEventListener('focus', showPlanetCard);
+    anchor.addEventListener('focus', show);
     anchor.addEventListener('blur', hidePlanetCard);
     anchor.addEventListener('click', hidePlanetCard);
+}
+
+function setupTickerHover() {
+    const ticker = document.getElementById('weather-ticker');
+    if (!ticker) return;
+    const show = () => {
+        if (weatherState.tickerIntervalId != null) {
+            clearInterval(weatherState.tickerIntervalId);
+            weatherState.tickerIntervalId = null;
+        }
+        if (weatherState.tickerResumeTimeoutId != null) {
+            clearTimeout(weatherState.tickerResumeTimeoutId);
+            weatherState.tickerResumeTimeoutId = null;
+        }
+        const item = ticker.querySelector('.ticker-item');
+        if (item) {
+            item.style.animation = 'none';
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+        }
+        showPlanetCard(findPlanet(weatherState.tickerPlanetName), ticker, 'right');
+    };
+    const hide = () => {
+        hidePlanetCard();
+        if (weatherState.tickerIntervalId != null) {
+            clearInterval(weatherState.tickerIntervalId);
+            weatherState.tickerIntervalId = null;
+        }
+        if (weatherState.tickerResumeTimeoutId != null) {
+            clearTimeout(weatherState.tickerResumeTimeoutId);
+            weatherState.tickerResumeTimeoutId = null;
+        }
+        const item = ticker.querySelector('.ticker-item');
+        if (item) {
+            item.style.animation = 'none';
+            item.style.opacity = '';
+            item.style.transform = '';
+            void item.offsetWidth;
+            item.style.animation = '';
+            item.style.animationDelay = `-${TICKER_FRAME_MS * 0.15}ms`;
+        }
+        const remainingMs = TICKER_FRAME_MS * 0.85;
+        weatherState.tickerResumeTimeoutId = setTimeout(() => {
+            weatherState.tickerResumeTimeoutId = null;
+            if (typeof weatherState.tickerShowNext !== 'function') return;
+            weatherState.tickerShowNext();
+            weatherState.tickerIntervalId = setInterval(weatherState.tickerShowNext, TICKER_FRAME_MS);
+        }, remainingMs);
+    };
+    ticker.addEventListener('mouseenter', show);
+    ticker.addEventListener('mouseleave', hide);
+    ticker.addEventListener('focus', show);
+    ticker.addEventListener('blur', hide);
 }
 
 function populateLocationModal() {
@@ -1403,6 +1462,7 @@ async function startWeatherTicker() {
         item.className = 'ticker-item';
         item.textContent = `${planet.name}: ${temp}° C`;
         host.replaceChildren(item);
+        weatherState.tickerPlanetName = planet.name;
 
         if (weatherState.homePlanetName &&
             planet.name.toLowerCase() === weatherState.homePlanetName.toLowerCase()) {
@@ -1411,8 +1471,9 @@ async function startWeatherTicker() {
         }
     };
 
+    weatherState.tickerShowNext = showNext;
     showNext();
-    setInterval(showNext, TICKER_FRAME_MS);
+    weatherState.tickerIntervalId = setInterval(showNext, TICKER_FRAME_MS);
 }
 
 // ─── Bootstrap ───
@@ -1464,7 +1525,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     startWeatherTicker();
-    setupPlanetCardHover();
+    setupCurrentLocationHover();
+    setupTickerHover();
 
     // Load all data in parallel where possible
     await Promise.all([

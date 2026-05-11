@@ -112,7 +112,12 @@
       font-weight: 500;
       letter-spacing: 0;
       color: #FFF;
-      pointer-events: none;
+      cursor: pointer;
+    }
+
+    #weather-ticker:focus-visible {
+      outline: 2px solid #FFF;
+      outline-offset: 2px;
     }
 
     #current-location {
@@ -829,7 +834,7 @@
       </div>
     </div>
     <span class="top-bar-brand">PokéLocs</span>
-    <div id="weather-ticker" aria-live="polite"></div>
+    <div id="weather-ticker" aria-live="polite" aria-describedby="planet-card" tabindex="0"></div>
   </div>
 
   <div class="app-container">

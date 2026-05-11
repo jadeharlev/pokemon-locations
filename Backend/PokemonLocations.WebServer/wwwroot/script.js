@@ -1327,7 +1327,8 @@ async function showPlanetCard(planet, anchor, align = 'left') {
     const cardWidth = card.offsetWidth || 280;
     card.style.top = `${rect.bottom + 8}px`;
     if (align === 'right') {
-        const left = Math.max(8, Math.min(rect.right - cardWidth, window.innerWidth - cardWidth - 8));
+        const desired = rect.right - cardWidth + 8;
+        const left = Math.max(8, Math.min(desired, window.innerWidth - cardWidth - 8));
         card.style.left = `${left}px`;
     } else {
         card.style.left = `${Math.max(8, rect.left)}px`;

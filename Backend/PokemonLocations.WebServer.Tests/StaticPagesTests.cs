@@ -65,4 +65,52 @@ public class StaticPagesTests {
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
+
+    [Fact]
+    public async Task IndexPageContainsPlanetHoverCardMarkup() {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"planet-card\"", html);
+        Assert.Contains("role=\"tooltip\"", html);
+        Assert.Contains("hidden", html);
+    }
+
+    [Fact]
+    public async Task CurrentLocationIsLinkedToPlanetCardForAccessibility() {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Matches(
+            @"id=""current-location""[^>]*aria-describedby=""planet-card""",
+            html);
+    }
+
+    [Fact]
+    public async Task WeatherTickerIsLinkedToPlanetCardForAccessibility() {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Matches(
+            @"id=""weather-ticker""[^>]*aria-describedby=""planet-card""",
+            html);
+    }
+
+    [Fact]
+    public async Task PlanetCardHasImageNameAndDescriptionSlots() {
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+        var html = await response.Content.ReadAsStringAsync();
+
+        Assert.Contains("id=\"planet-card-image\"", html);
+        Assert.Contains("id=\"planet-card-name\"", html);
+        Assert.Contains("id=\"planet-card-description\"", html);
+    }
 }

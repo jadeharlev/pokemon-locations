@@ -112,7 +112,12 @@
       font-weight: 500;
       letter-spacing: 0;
       color: #FFF;
-      pointer-events: none;
+      cursor: pointer;
+    }
+
+    #weather-ticker:focus-visible {
+      outline: 2px solid #FFF;
+      outline-offset: 2px;
     }
 
     #current-location {
@@ -132,8 +137,38 @@
       letter-spacing: 0;
     }
 
-    #current-location:hover {
+    #current-location:hover,
+    #current-location:focus-visible {
       text-decoration: underline;
+      outline: none;
+    }
+
+    #planet-card {
+      z-index: 1500;
+      width: 280px;
+      max-width: calc(100vw - 32px);
+      pointer-events: none;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    #planet-card-image {
+      height: 140px;
+      object-fit: cover;
+      background: #eee;
+    }
+
+    #planet-card-name {
+      font-size: 15px;
+      color: var(--theme-primary-dark, inherit);
+    }
+
+    #planet-card-description {
+      color: #444;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #planet-card { transition: none; }
     }
 
     .ticker-item {
@@ -790,9 +825,16 @@
 <body>
 
   <div class="top-bar" id="top-bar">
-    <button type="button" id="current-location" aria-label="Set permanent location">Current: not set</button>
+    <button type="button" id="current-location" aria-label="Set permanent location" aria-describedby="planet-card">Current: not set</button>
+    <div id="planet-card" class="card position-fixed shadow-lg text-start" role="tooltip" aria-hidden="true" hidden>
+      <img id="planet-card-image" class="card-img-top" src="" alt="" />
+      <div class="card-body p-2">
+        <h3 id="planet-card-name" class="card-title fw-bold mb-1"></h3>
+        <p id="planet-card-description" class="card-text mb-0"></p>
+      </div>
+    </div>
     <span class="top-bar-brand">PokéLocs</span>
-    <div id="weather-ticker" aria-live="polite"></div>
+    <div id="weather-ticker" aria-live="polite" aria-describedby="planet-card" tabindex="0"></div>
   </div>
 
   <div class="app-container">

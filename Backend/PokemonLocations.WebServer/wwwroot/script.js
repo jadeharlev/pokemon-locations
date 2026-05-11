@@ -1246,7 +1246,9 @@ const TICKER_FRAME_MS = 4000;
 const weatherState = {
     planets: [],
     homePlanetName: null,
-    homePlanetTemp: null
+    homePlanetTemp: null,
+    tickerPlanetName: null,
+    tickerIntervalId: null
 };
 
 function randomInt(min, max) {
@@ -1282,6 +1284,131 @@ function setHomePlanet(name) {
         ? randomInt(planet.minTemp, planet.maxTemp)
         : null;
     renderCurrentLocation();
+    if (planet) loadPlanetImageBlobUrl(planet);
+}
+
+const planetImageBlobUrlCache = new Map();
+
+function proxiedPlanetImagePath(imageUrl) {
+    if (!imageUrl) return null;
+    const match = imageUrl.match(/\/images\/planets\/([^\/?#]+)$/i);
+    return match ? `/planets/images/${match[1]}` : null;
+}
+
+async function loadPlanetImageBlobUrl(planet) {
+    const path = proxiedPlanetImagePath(planet.imageUrl);
+    if (!path) return '';
+    if (planetImageBlobUrlCache.has(planet.name)) {
+        return planetImageBlobUrlCache.get(planet.name);
+    }
+    try {
+        const res = await apiFetch(path);
+        if (!res.ok) return '';
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        planetImageBlobUrlCache.set(planet.name, url);
+        return url;
+    } catch {
+        return '';
+    }
+}
+
+async function showPlanetCard(planet, anchor, align = 'left') {
+    const card = document.getElementById('planet-card');
+    if (!card || !anchor || !planet) return;
+
+    document.getElementById('planet-card-name').textContent = planet.name;
+    document.getElementById('planet-card-description').textContent = planet.description ?? '';
+    const img = document.getElementById('planet-card-image');
+    img.alt = planet.name;
+    img.src = '';
+
+    const rect = anchor.getBoundingClientRect();
+    const cardWidth = card.offsetWidth || 280;
+    card.style.top = `${rect.bottom + 8}px`;
+    if (align === 'right') {
+        const desired = rect.right - cardWidth + 8;
+        const left = Math.max(8, Math.min(desired, window.innerWidth - cardWidth - 8));
+        card.style.left = `${left}px`;
+    } else {
+        card.style.left = `${Math.max(8, rect.left)}px`;
+    }
+    card.hidden = false;
+    card.setAttribute('aria-hidden', 'false');
+
+    const blobUrl = await loadPlanetImageBlobUrl(planet);
+    if (blobUrl && !card.hidden) img.src = blobUrl;
+}
+
+function hidePlanetCard() {
+    const card = document.getElementById('planet-card');
+    if (!card) return;
+    card.hidden = true;
+    card.setAttribute('aria-hidden', 'true');
+}
+
+function setupCurrentLocationHover() {
+    const anchor = document.getElementById('current-location');
+    if (!anchor) return;
+    const show = () => showPlanetCard(findPlanet(weatherState.homePlanetName), anchor, 'left');
+    anchor.addEventListener('mouseenter', show);
+    anchor.addEventListener('mouseleave', hidePlanetCard);
+    anchor.addEventListener('focus', show);
+    anchor.addEventListener('blur', hidePlanetCard);
+    anchor.addEventListener('click', hidePlanetCard);
+}
+
+function setupTickerHover() {
+    const ticker = document.getElementById('weather-ticker');
+    if (!ticker) return;
+    const show = () => {
+        if (weatherState.tickerIntervalId != null) {
+            clearInterval(weatherState.tickerIntervalId);
+            weatherState.tickerIntervalId = null;
+        }
+        if (weatherState.tickerResumeTimeoutId != null) {
+            clearTimeout(weatherState.tickerResumeTimeoutId);
+            weatherState.tickerResumeTimeoutId = null;
+        }
+        const item = ticker.querySelector('.ticker-item');
+        if (item) {
+            item.style.animation = 'none';
+            item.style.opacity = '1';
+            item.style.transform = 'translateY(0)';
+        }
+        showPlanetCard(findPlanet(weatherState.tickerPlanetName), ticker, 'right');
+    };
+    const hide = () => {
+        hidePlanetCard();
+        if (weatherState.tickerIntervalId != null) {
+            clearInterval(weatherState.tickerIntervalId);
+            weatherState.tickerIntervalId = null;
+        }
+        if (weatherState.tickerResumeTimeoutId != null) {
+            clearTimeout(weatherState.tickerResumeTimeoutId);
+            weatherState.tickerResumeTimeoutId = null;
+        }
+        const item = ticker.querySelector('.ticker-item');
+        if (item) {
+            item.style.animation = 'none';
+            item.style.opacity = '';
+            item.style.transform = '';
+            void item.offsetWidth;
+            item.style.animation = '';
+            item.style.animationDelay = `-${TICKER_FRAME_MS * 0.15}ms`;
+        }
+        const remainingMs = TICKER_FRAME_MS * 0.85;
+        weatherState.tickerResumeTimeoutId = setTimeout(() => {
+            weatherState.tickerResumeTimeoutId = null;
+            if (typeof weatherState.tickerShowNext !== 'function') return;
+            weatherState.tickerShowNext();
+            weatherState.tickerIntervalId = setInterval(weatherState.tickerShowNext, TICKER_FRAME_MS);
+        }, remainingMs);
+    };
+    ticker.addEventListener('mouseenter', show);
+    ticker.addEventListener('mouseleave', hide);
+    ticker.addEventListener('focus', show);
+    ticker.addEventListener('blur', hide);
 }
 
 function populateLocationModal() {
@@ -1336,6 +1463,7 @@ async function startWeatherTicker() {
         item.className = 'ticker-item';
         item.textContent = `${planet.name}: ${temp}° C`;
         host.replaceChildren(item);
+        weatherState.tickerPlanetName = planet.name;
 
         if (weatherState.homePlanetName &&
             planet.name.toLowerCase() === weatherState.homePlanetName.toLowerCase()) {
@@ -1344,8 +1472,9 @@ async function startWeatherTicker() {
         }
     };
 
+    weatherState.tickerShowNext = showNext;
     showNext();
-    setInterval(showNext, TICKER_FRAME_MS);
+    weatherState.tickerIntervalId = setInterval(showNext, TICKER_FRAME_MS);
 }
 
 // ─── Bootstrap ───
@@ -1397,6 +1526,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     startWeatherTicker();
+    setupCurrentLocationHover();
+    setupTickerHover();
 
     // Load all data in parallel where possible
     await Promise.all([

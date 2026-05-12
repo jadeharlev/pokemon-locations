@@ -3,7 +3,9 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 USER root
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libfontconfig1 \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && mkdir -p /app/uploads \
+ && chown -R $APP_UID:$APP_UID /app/uploads
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080

@@ -230,6 +230,10 @@
 
     /* ─Location name with inline dropdown ── */
 
+	.location-name-wrapper {
+	  width: fit-content;
+	}
+
 	.location-dropdown-toggle {
 	  color: var(--theme-primary-dark);
 	  font-size: 30px;
@@ -250,9 +254,12 @@
 
 	.location-dropdown-menu {
 	  max-height: 320px;
+	  width: 100%;
+	  min-width: 0;
 	  overflow-y: auto;
+	  padding: 0;
 	  border: 2px solid var(--theme-primary);
-	  border-radius: 13px;
+	  border-radius: 0 0 6px 6px;
 	  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
 	}
 

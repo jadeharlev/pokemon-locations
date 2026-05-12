@@ -86,7 +86,7 @@ Any extra args are forwarded to `docker compose`, with the same file/profile sel
 All API endpoints except `GET /health/db` require an HS256 JWT in the `Authorization: Bearer <token>` header. For local development, use the `issue-token.sh` helper, which sets the dev signing key and runs the `PokemonLocations.TokenIssuer` console tool:
 
 ```bash
-./issue-token.sh --client team-alpha
+./scripts/issue-token.sh --client team-alpha
 ```
 
 `--client` is required and becomes the `sub` claim. `--days` is optional (default `90`). The signed JWT is written to stdout. The script's hardcoded `Jwt__Key` matches the dev key in `docker-compose.debug.yml`, so the resulting token validates against the locally-running API. For non-dev environments, run the issuer directly with the appropriate `Jwt__Key` exported:

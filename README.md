@@ -106,6 +106,16 @@ To run `PokemonLocations.Api` directly via `dotnet run`, first start the Postgre
 
 The API runs its database migrations automatically on startup (via DbUp), so no manual migration step is required. The API test suite brings up its own Postgres via Testcontainers and does not need the compose `db` service.
 
+## Adding or updating NuGet packages
+
+CI uses `dotnet restore --locked-mode` against committed `packages.lock.json` files so the NuGet cache key is deterministic. After adding, removing, or upgrading a package, regenerate the lock files locally and commit them alongside the `.csproj` change:
+
+```bash
+dotnet restore Backend/Backend.sln
+```
+
+If you skip this step, CI will fail the locked-mode restore.
+
 ## Troubleshooting
 
 ### API container crashes on startup (macOS)

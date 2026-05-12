@@ -1,29 +1,50 @@
 using Dapper;
+using Npgsql;
 using PokemonLocations.WebServer.Database;
 using Testcontainers.PostgreSql;
 
 namespace PokemonLocations.WebServer.Tests.Infrastructure;
 
 public class PostgresFixture : IAsyncLifetime {
-    private readonly PostgreSqlContainer container = new PostgreSqlBuilder()
-        .WithImage("postgres:17")
-        .WithDatabase("pokemonlocations_webserver_test")
-        .WithUsername("postgres")
-        .WithPassword("example")
-        .Build();
+    private static readonly Lazy<Task<PostgreSqlContainer>> sharedContainer = new(StartSharedContainerAsync);
 
-    public string ConnectionString => container.GetConnectionString();
+    private string connectionString = null!;
+
+    public string ConnectionString => connectionString;
 
     public async Task InitializeAsync() {
-        await container.StartAsync();
-        DefaultTypeMap.MatchNamesWithUnderscores = true;
-        var result = MigrationRunner.Run(ConnectionString);
+        var container = await sharedContainer.Value;
+        var dbName = "test_" + Guid.NewGuid().ToString("N");
+
+        await using (var adminConn = new NpgsqlConnection(container.GetConnectionString())) {
+            await adminConn.OpenAsync();
+            await adminConn.ExecuteAsync($"CREATE DATABASE \"{dbName}\"");
+        }
+
+        connectionString = new NpgsqlConnectionStringBuilder(container.GetConnectionString()) {
+            Database = dbName
+        }.ConnectionString;
+
+        var result = MigrationRunner.Run(connectionString);
         if (!result.Successful) {
             throw new InvalidOperationException("Test DB migration failed", result.Error);
         }
     }
 
-    public Task DisposeAsync() => container.DisposeAsync().AsTask();
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    private static async Task<PostgreSqlContainer> StartSharedContainerAsync() {
+        var builder = new PostgreSqlBuilder()
+            .WithImage("postgres:17")
+            .WithDatabase("postgres")
+            .WithUsername("postgres")
+            .WithPassword("example")
+            .WithCommand("-c", "max_connections=400")
+            .Build();
+        await builder.StartAsync();
+        DefaultTypeMap.MatchNamesWithUnderscores = true;
+        return builder;
+    }
 }
 
 [CollectionDefinition("Postgres")]

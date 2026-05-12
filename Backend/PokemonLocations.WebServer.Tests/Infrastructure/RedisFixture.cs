@@ -3,15 +3,28 @@ using Testcontainers.Redis;
 namespace PokemonLocations.WebServer.Tests.Infrastructure;
 
 public class RedisFixture : IAsyncLifetime {
-    private readonly RedisContainer container = new RedisBuilder()
-        .WithImage("redis:8-alpine")
-        .Build();
+    private static readonly Lazy<Task<RedisContainer>> sharedContainer = new(StartSharedContainerAsync);
+    private static int nextDatabase = -1;
 
-    public string ConnectionString => container.GetConnectionString();
+    private string connectionString = null!;
 
-    public Task InitializeAsync() => container.StartAsync();
+    public string ConnectionString => connectionString;
 
-    public Task DisposeAsync() => container.DisposeAsync().AsTask();
+    public async Task InitializeAsync() {
+        var container = await sharedContainer.Value;
+        var db = Interlocked.Increment(ref nextDatabase);
+        connectionString = $"{container.GetConnectionString()},defaultDatabase={db}";
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    private static async Task<RedisContainer> StartSharedContainerAsync() {
+        var builder = new RedisBuilder()
+            .WithImage("redis:8-alpine")
+            .Build();
+        await builder.StartAsync();
+        return builder;
+    }
 }
 
 [CollectionDefinition("Redis")]

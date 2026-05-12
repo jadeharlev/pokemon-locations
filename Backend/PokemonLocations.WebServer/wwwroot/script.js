@@ -682,6 +682,57 @@ let currentStats = {
 
 
 const UNLOCKED_THEMES_CACHE_KEY = 'pl.unlockedThemes';
+const CELEBRATED_THEME_UNLOCKS_KEY = 'pl.celebratedThemeUnlocks';
+const PERMANENT_UNLOCKED_THEMES_KEY = 'pl.permanentUnlockedThemes';
+
+
+function getPermanentUnlockedThemes() {
+    const raw = localStorage.getItem(PERMANENT_UNLOCKED_THEMES_KEY);
+
+    if (!raw) {
+        return new Set();
+    }
+
+    try {
+        return new Set(JSON.parse(raw));
+    } catch {
+        return new Set();
+    }
+}
+
+function rememberPermanentUnlockedTheme(theme) {
+    const unlocked = getPermanentUnlockedThemes();
+    unlocked.add(theme);
+
+    localStorage.setItem(
+        PERMANENT_UNLOCKED_THEMES_KEY,
+        JSON.stringify([...unlocked])
+    );
+}
+
+function getCelebratedThemeUnlocks() {
+    const raw = localStorage.getItem(CELEBRATED_THEME_UNLOCKS_KEY);
+
+    if (!raw) {
+        return new Set();
+    }
+
+    try {
+        return new Set(JSON.parse(raw));
+    } catch {
+        return new Set();
+    }
+}
+
+function rememberCelebratedThemeUnlock(theme) {
+    const celebrated = getCelebratedThemeUnlocks();
+    celebrated.add(theme);
+
+    localStorage.setItem(
+        CELEBRATED_THEME_UNLOCKS_KEY,
+        JSON.stringify([...celebrated])
+    );
+}
 
 function getUnlockedThemeSet() {
     return new Set(getUnlockedThemes());
@@ -740,26 +791,35 @@ function showConfetti() {
     }, 2500);
 }
 
+
+
 function checkForNewThemeUnlocks() {
-    const currentlyUnlocked = getUnlockedThemeSet();
-    const previouslyUnlocked = getRememberedUnlockedThemes();
+    const permanentlyUnlocked = getPermanentUnlockedThemes();
 
-    // First time loading the page: remember current unlocks but do not show confetti.
-    if (!previouslyUnlocked) {
-        rememberUnlockedThemes(currentlyUnlocked);
-        return;
-    }
+    const newlyUnlocked = THEMES.filter(theme => {
+        const rule = THEME_UNLOCK_RULES[theme];
 
-    const newlyUnlocked = [...currentlyUnlocked].filter(theme => !previouslyUnlocked.has(theme));
+        // Only check unlockable themes.
+        if (!rule) {
+            return false;
+        }
 
-    if (newlyUnlocked.length > 0) {
-        newlyUnlocked.forEach(theme => {
-            showUnlockMessage(theme);
-            showConfetti();
-        });
-    }
+        // Do not unlock/celebrate the same theme twice.
+        if (permanentlyUnlocked.has(theme)) {
+            return false;
+        }
 
-    rememberUnlockedThemes(currentlyUnlocked);
+        // Unlock if the user meets the rule right now.
+        return rule.isUnlocked(currentStats);
+    });
+
+    newlyUnlocked.forEach(theme => {
+        rememberPermanentUnlockedTheme(theme);
+        showUnlockMessage(theme);
+        showConfetti();
+    });
+
+    updateThemeButtons();
 }
 
 
@@ -815,13 +875,23 @@ function updateDisplayedThemeName(theme) {
     }
 }
 
+
 function isThemeUnlocked(theme) {
     const rule = THEME_UNLOCK_RULES[theme];
 
+    // Themes with no rule are unlocked by default.
     if (!rule) {
         return true;
     }
 
+    const permanentlyUnlocked = getPermanentUnlockedThemes();
+
+    // If the user unlocked it before, keep it unlocked.
+    if (permanentlyUnlocked.has(theme)) {
+        return true;
+    }
+
+    // Otherwise check current progress.
     return rule.isUnlocked(currentStats);
 }
 

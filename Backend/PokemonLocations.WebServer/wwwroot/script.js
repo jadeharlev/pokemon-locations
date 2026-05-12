@@ -808,6 +808,7 @@ function applyTheme(name) {
     const link = document.getElementById('theme-stylesheet');
     if (link) link.href = `/css/themes/${name}.css`;
     sessionStorage.setItem(THEME_CACHE_KEY, name);
+    updateThemeSprite(name);
 }
 
 

@@ -870,6 +870,7 @@ function getUnlockedThemes() {
 function updateThemeButtons() {
     document.querySelectorAll('.theme-option').forEach(btn => {
         const theme = btn.dataset.theme;
+        const labelEl = btn.querySelector('.theme-option-label');
         btn.removeAttribute('title');
 
         if (theme === 'random') {
@@ -890,10 +891,11 @@ function updateThemeButtons() {
         btn.setAttribute('aria-disabled', String(!unlocked));
 
         if (!unlocked && rule) {
-            btn.textContent = formatThemeName(theme);
+            if (labelEl) labelEl.textContent = formatThemeName(theme);
             btn.dataset.tooltip = `Unlock condition: ${rule.label}`;
         } else {
-            btn.textContent = btn.dataset.label || formatThemeName(theme);
+            const labelText = btn.dataset.label || formatThemeName(theme);
+            if (labelEl) labelEl.textContent = labelText;
             btn.dataset.tooltip = '';
         }
     });

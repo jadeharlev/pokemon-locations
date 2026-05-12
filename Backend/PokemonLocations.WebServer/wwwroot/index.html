@@ -402,14 +402,16 @@
       border: 2px solid var(--theme-primary);
       background: var(--theme-primary-dark);
       color: white;
-      font-size: 28px;
-      font-weight: 600;
+      padding: 0;
       cursor: pointer;
       z-index: 10;
       display: flex;
       align-items: center;
       justify-content: center;
       transition: opacity 0.15s, transform 0.15s;
+    }
+    .gallery-upload-icon {
+      display: block;
     }
     .gallery-upload:hover { transform: scale(1.05); }
     .gallery-upload:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -782,6 +784,32 @@
       opacity: 1;
     }
 
+    /* ── Theme picker sprite thumbnails (96×96 PokeAPI default sprites, scaled) ── */
+    .theme-option {
+      position: relative;
+      min-height: 56px;
+      padding-left: 64px;
+      padding-right: 64px;
+    }
+
+    .theme-option-icon {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      height: 48px;
+      width: 48px;
+      object-fit: contain;
+      image-rendering: pixelated;
+    }
+
+    /* PokeAPI item sprites have no transparent padding around them, while
+       Pokémon sprites occupy ~60% of their 96×96 canvas. Pad the Pokéball
+       inward so it visually matches the Pokémon sprites' rendered scale. */
+    .theme-option[data-theme="random"] .theme-option-icon {
+      padding: 8px;
+    }
+
     /* ── Themed dialog modal ── */
     #dialog-modal .modal-title {
       color: var(--theme-primary-dark);
@@ -901,7 +929,7 @@
    	<div class="location-status" id="location-status"></div>
         <div class="location-description" id="location-description"></div>
         <div class="image-gallery" id="image-gallery">Image Gallery
-          <button type="button" class="gallery-upload" id="gallery-upload" aria-label="Upload images">+</button>
+          <button type="button" class="gallery-upload" id="gallery-upload" aria-label="Upload images"><svg class="gallery-upload-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5z" fill="currentColor"/></svg></button>
           <input type="file" class="gallery-file-input" id="gallery-file-input" multiple accept="image/png,image/jpeg,image/webp" style="display: none;">
           <div class="gallery-drag-overlay" id="gallery-drag-overlay" aria-hidden="true">Drop to upload</div>
         </div>
@@ -955,20 +983,20 @@
         <div class="modal-body">
           <div class="d-grid gap-2">
 
-            <button class="btn btn-outline-secondary theme-option" data-theme="random">Random</button>
-            
-            <button class="btn btn-outline-secondary theme-option" data-theme="bulbasaur">Bulbasaur (Green)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="charmander">Charmander (Red)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="squirtle">Squirtle (Blue)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="pikachu">Pikachu (Yellow)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="random"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png" alt="" /><span class="theme-option-label">Random</span></button>
+
+            <button class="btn btn-outline-secondary theme-option" data-theme="bulbasaur"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/1.png" alt="" /><span class="theme-option-label">Bulbasaur (Green)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="charmander"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/4.png" alt="" /><span class="theme-option-label">Charmander (Red)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="squirtle"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/7.png" alt="" /><span class="theme-option-label">Squirtle (Blue)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="pikachu"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png" alt="" /><span class="theme-option-label">Pikachu (Yellow)</span></button>
 
 
-            <button class="btn btn-outline-secondary theme-option" data-theme="rattata">Rattata (Purple)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="diglett">Diglett (Brown)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="geodude">Geodude (Gray)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="dratini">Dratini (Light Blue)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="mew">Mew (Pink)</button>
-            <button class="btn btn-outline-secondary theme-option" data-theme="dragonite">Dragonite (Orange)</button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="rattata"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/19.png" alt="" /><span class="theme-option-label">Rattata (Purple)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="diglett"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/50.png" alt="" /><span class="theme-option-label">Diglett (Brown)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="geodude"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/74.png" alt="" /><span class="theme-option-label">Geodude (Gray)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="dratini"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/147.png" alt="" /><span class="theme-option-label">Dratini (Light Blue)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="mew"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/151.png" alt="" /><span class="theme-option-label">Mew (Pink)</span></button>
+            <button class="btn btn-outline-secondary theme-option" data-theme="dragonite"><img class="theme-option-icon" src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/149.png" alt="" /><span class="theme-option-label">Dragonite (Orange)</span></button>
 
           </div>
         </div>

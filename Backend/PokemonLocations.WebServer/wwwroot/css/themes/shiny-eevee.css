@@ -85,13 +85,19 @@ body {
   box-shadow: 0 0 22px rgba(212, 175, 55, 0.45);
 }
 
-.location-dropdown-toggle,
 .btn-primary,
 .theme-option:hover {
   background: linear-gradient(90deg, #fff1b8, #f7df8e, #fff1b8);
   border-color: #d4af37;
   color: #3a2600;
   box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+}
+
+.location-dropdown-toggle {
+  color: #3a2600;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 .theme-unlock-message {

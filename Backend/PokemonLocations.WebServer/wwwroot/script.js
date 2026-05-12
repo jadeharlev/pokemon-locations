@@ -762,8 +762,45 @@ function checkForNewThemeUnlocks() {
     rememberUnlockedThemes(currentlyUnlocked);
 }
 
+// ─── Theme sprite display (PokeAPI official artwork) ───
+const ART_BASE = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork';
+const art = (id) => `${ART_BASE}/${id}.png`;
+const shinyArt = (id) => `${ART_BASE}/shiny/${id}.png`;
 
+const THEME_TO_SPRITE_URL = {
+    bulbasaur:    art(1),
+    charmander:   art(4),
+    squirtle:     art(7),
+    pikachu:      art(25),
+    rattata:      art(19),
+    diglett:      art(50),
+    geodude:      art(74),
+    dratini:      art(147),
+    dragonite:    art(149),
+    mew:          art(151),
+    'shiny-eevee': shinyArt(133),
+};
 
+function updateThemeSprite(name) {
+    const img = document.getElementById('theme-sprite');
+    if (!img) return;
+
+    const url = THEME_TO_SPRITE_URL[name];
+    if (!url) {
+        img.classList.remove('loaded');
+        img.removeAttribute('src');
+        return;
+    }
+
+    img.classList.remove('loaded');
+    img.alt = `${formatThemeName(name)} sprite`;
+    img.onload = () => img.classList.add('loaded');
+    img.onerror = () => {
+        console.warn(`Theme sprite failed to load for ${name}: ${url}`);
+        img.classList.remove('loaded');
+    };
+    img.src = url;
+}
 
 function applyTheme(name) {
     if (!VALID_THEMES.includes(name)) name = 'bulbasaur';

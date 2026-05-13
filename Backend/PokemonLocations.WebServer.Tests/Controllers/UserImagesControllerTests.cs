@@ -23,6 +23,14 @@ public class UserImagesControllerTests {
             ApiClient = apiClient ?? Substitute.For<IPokemonLocationsApiClient>()
         };
 
+    private PokemonLocationsWebServerFactory CreateFactoryWithRateLimit(
+        int permitLimit, int windowSeconds, IPokemonLocationsApiClient? apiClient = null) =>
+        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
+            ApiClient = apiClient ?? Substitute.For<IPokemonLocationsApiClient>(),
+            UploadPermitLimit = permitLimit,
+            UploadWindowSeconds = windowSeconds
+        };
+
     private static IPokemonLocationsApiClient ApiClientThatAcceptsLocations() {
         var client = Substitute.For<IPokemonLocationsApiClient>();
         client.ExistsAsync(Arg.Any<string>()).Returns(true);
@@ -209,7 +217,8 @@ public class UserImagesControllerTests {
     public async Task PostWhenAtCapReturns400CapReached() {
         await ResetUsersAsync(postgresFixture.ConnectionString);
         await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        var factory = CreateFactory(ApiClientThatAcceptsLocations());
+        var factory = CreateFactoryWithRateLimit(
+            permitLimit: 100, windowSeconds: 60, apiClient: ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
         for (int i = 0; i < 20; i++) {
@@ -403,6 +412,71 @@ public class UserImagesControllerTests {
         var response = await blueClient.GetAsync($"/api/me/locations/1/images/{redImageId}");
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task PostExceedingRateLimitReturns429() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactoryWithRateLimit(
+            permitLimit: 2, windowSeconds: 60, apiClient: ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        async Task<HttpStatusCode> PostOne() {
+            using var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
+            var response = await client.PostAsync("/api/me/locations/1/images", c);
+            return response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Created, await PostOne());
+        Assert.Equal(HttpStatusCode.Created, await PostOne());
+        Assert.Equal(HttpStatusCode.TooManyRequests, await PostOne());
+    }
+
+    [Fact]
+    public async Task PostRateLimitIsPerUser() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        var factory = CreateFactoryWithRateLimit(
+            permitLimit: 1, windowSeconds: 60, apiClient: ApiClientThatAcceptsLocations());
+
+        var red = AuthorizedClient(factory, "red@example.com", "pikachu123");
+        var blue = AuthorizedClient(factory, "blue@example.com", "squirtle1");
+
+        async Task<HttpStatusCode> PostOne(HttpClient c) {
+            using var content = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
+            var response = await c.PostAsync("/api/me/locations/1/images", content);
+            return response.StatusCode;
+        }
+
+        Assert.Equal(HttpStatusCode.Created, await PostOne(red));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await PostOne(red));
+        Assert.Equal(HttpStatusCode.Created, await PostOne(blue));
+    }
+
+    [Fact]
+    public async Task GetIsNotRateLimited() {
+        await ResetUsersAsync(postgresFixture.ConnectionString);
+        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        var factory = CreateFactoryWithRateLimit(
+            permitLimit: 1, windowSeconds: 60, apiClient: ApiClientThatAcceptsLocations());
+        var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
+
+        string imageId;
+        using (var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png")) {
+            var post = await client.PostAsync("/api/me/locations/1/images", c);
+            Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+            imageId = (await ReadJsonAsync(post)).GetProperty("imageId").GetString()!;
+        }
+
+        using (var c = MakeMultipart(ValidPngBytes(), "shot.png", "image/png")) {
+            var post = await client.PostAsync("/api/me/locations/1/images", c);
+            Assert.Equal(HttpStatusCode.TooManyRequests, post.StatusCode);
+        }
+
+        var get = await client.GetAsync($"/api/me/locations/1/images/{imageId}");
+        Assert.Equal(HttpStatusCode.OK, get.StatusCode);
     }
 
     [Fact]

@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
@@ -33,6 +34,7 @@ public class UserImagesController : ControllerBase {
     }
 
     [HttpPost]
+    [EnableRateLimiting("upload")]
     public async Task<IActionResult> Upload(int locationId, IFormFile file, CancellationToken ct) {
         var userId = User.GetUserId();
 

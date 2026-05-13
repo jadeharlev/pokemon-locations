@@ -1,6 +1,8 @@
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Npgsql;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Clients;
@@ -113,6 +115,28 @@ builder.Services.AddAuthorization(options => {
         .Build();
 });
 
+builder.Services.Configure<UploadRateLimitOptions>(
+    builder.Configuration.GetSection("RateLimits:Upload"));
+builder.Services.AddRateLimiter(options => {
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("upload", httpContext => {
+        var key = httpContext.User?.Identity?.IsAuthenticated == true
+            ? httpContext.User.GetUserId().ToString()
+            : "anonymous";
+        var settings = httpContext.RequestServices
+            .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<UploadRateLimitOptions>>()
+            .CurrentValue;
+        return RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: key,
+            factory: _ => new FixedWindowRateLimiterOptions {
+                PermitLimit = settings.PermitLimit,
+                Window = TimeSpan.FromSeconds(settings.WindowSeconds),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
+
 builder.Services.AddControllers();
 #endregion
 
@@ -131,6 +155,7 @@ app.UseStaticFiles(new StaticFileOptions {
 
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapGet("/health/db", [AllowAnonymous] async (NpgsqlDataSource source) => {
     await using var connection = await source.OpenConnectionAsync();

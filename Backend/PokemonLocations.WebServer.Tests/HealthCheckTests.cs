@@ -7,10 +7,8 @@ namespace PokemonLocations.WebServer.Tests;
 public class HealthCheckTests {
     private readonly PokemonLocationsWebServerFactory factory;
 
-    public HealthCheckTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString,
-            redisFixture.ConnectionString);
+    public HealthCheckTests(WebServerFixture fixture) {
+        factory = fixture.Factory;
     }
 
     [Fact]

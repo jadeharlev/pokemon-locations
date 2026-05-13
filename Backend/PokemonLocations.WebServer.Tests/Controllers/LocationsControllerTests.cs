@@ -8,18 +8,16 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class LocationsControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
+    private readonly WebServerFixture fixture;
 
-    public LocationsControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
+    public LocationsControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
     }
 
-    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
-            ApiClient = apiClient
-        };
+    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides { ApiClient = apiClient };
+        return fixture.Factory;
+    }
 
     private static HttpClient AuthorizedClient(
         PokemonLocationsWebServerFactory factory, string email, string password) {
@@ -69,8 +67,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetAllProxiesApiResponse() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations").Returns(new ApiResponse(200, TwoLocationsJson));
         var factory = CreateFactory(apiClient);
@@ -86,8 +84,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetAllMergesVisitedFlag() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations").Returns(new ApiResponse(200, TwoLocationsJson));
         var factory = CreateFactory(apiClient);
@@ -105,8 +103,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetAllPropagatesApi404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations").Returns(new ApiResponse(404, null));
         var factory = CreateFactory(apiClient);
@@ -121,8 +119,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdProxiesAndMergesVisited() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
         var factory = CreateFactory(apiClient);
@@ -140,8 +138,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdReturnsEmptyUserImagesForNewUser() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
         var factory = CreateFactory(apiClient);
@@ -155,8 +153,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdIncludesUploadedUserImages() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
         var factory = CreateFactory(apiClient);
@@ -179,9 +177,9 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdDoesNotLeakAnotherUsersImages() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(fixture.PostgresConnectionString, "blue@example.com", "squirtle1", "Blue");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
         var factory = CreateFactory(apiClient);
@@ -202,8 +200,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdPassesCanonicalImagesThrough() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/1").Returns(new ApiResponse(200, SingleLocationJson));
         var factory = CreateFactory(apiClient);
@@ -220,8 +218,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdPassesEmptyImagesArrayThrough() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/2").Returns(new ApiResponse(200, SingleLocationJsonNoImages));
         var factory = CreateFactory(apiClient);
@@ -235,8 +233,8 @@ public class LocationsControllerTests {
 
     [Fact]
     public async Task GetByIdPropagatesApi404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = CreateApiClient();
         apiClient.GetWithStatusAsync("/locations/999").Returns(new ApiResponse(404, null));
         var factory = CreateFactory(apiClient);

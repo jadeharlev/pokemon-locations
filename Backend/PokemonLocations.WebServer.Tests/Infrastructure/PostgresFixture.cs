@@ -13,6 +13,14 @@ public class PostgresFixture : IAsyncLifetime {
     public string ConnectionString => connectionString;
 
     public async Task InitializeAsync() {
+        connectionString = await AllocateMigratedDatabaseAsync();
+    }
+
+    public Task DisposeAsync() => Task.CompletedTask;
+
+    internal static Task<PostgreSqlContainer> GetSharedContainerAsync() => sharedContainer.Value;
+
+    internal static async Task<string> AllocateMigratedDatabaseAsync() {
         var container = await sharedContainer.Value;
         var dbName = "test_" + Guid.NewGuid().ToString("N");
 
@@ -21,17 +29,16 @@ public class PostgresFixture : IAsyncLifetime {
             await adminConn.ExecuteAsync($"CREATE DATABASE \"{dbName}\"");
         }
 
-        connectionString = new NpgsqlConnectionStringBuilder(container.GetConnectionString()) {
+        var connString = new NpgsqlConnectionStringBuilder(container.GetConnectionString()) {
             Database = dbName
         }.ConnectionString;
 
-        var result = MigrationRunner.Run(connectionString);
+        var result = MigrationRunner.Run(connString);
         if (!result.Successful) {
             throw new InvalidOperationException("Test DB migration failed", result.Error);
         }
+        return connString;
     }
-
-    public Task DisposeAsync() => Task.CompletedTask;
 
     private static async Task<PostgreSqlContainer> StartSharedContainerAsync() {
         var builder = new PostgreSqlBuilder()

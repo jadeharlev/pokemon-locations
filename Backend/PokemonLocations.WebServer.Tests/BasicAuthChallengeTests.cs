@@ -7,10 +7,8 @@ namespace PokemonLocations.WebServer.Tests;
 public class BasicAuthChallengeTests {
     private readonly PokemonLocationsWebServerFactory factory;
 
-    public BasicAuthChallengeTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString,
-            redisFixture.ConnectionString);
+    public BasicAuthChallengeTests(WebServerFixture fixture) {
+        factory = fixture.Factory;
     }
 
     [Fact]

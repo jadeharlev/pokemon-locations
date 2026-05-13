@@ -8,18 +8,16 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class GymsControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
+    private readonly WebServerFixture fixture;
 
-    public GymsControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
+    public GymsControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
     }
 
-    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
-            ApiClient = apiClient
-        };
+    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides { ApiClient = apiClient };
+        return fixture.Factory;
+    }
 
     private static HttpClient AuthorizedClient(
         PokemonLocationsWebServerFactory factory, string email, string password) {
@@ -44,8 +42,8 @@ public class GymsControllerTests {
 
     [Fact]
     public async Task GetAllProxiesApiResponse() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         apiClient.GetWithStatusAsync("/gyms").Returns(new ApiResponse(200, GymsJson));
         var factory = CreateFactory(apiClient);

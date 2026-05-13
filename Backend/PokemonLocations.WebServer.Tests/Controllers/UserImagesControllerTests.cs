@@ -10,18 +10,18 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class UserImagesControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
+    private readonly WebServerFixture fixture;
 
-    public UserImagesControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
+    public UserImagesControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
     }
 
-    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient? apiClient = null) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
+    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient? apiClient = null) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides {
             ApiClient = apiClient ?? Substitute.For<IPokemonLocationsApiClient>()
         };
+        return fixture.Factory;
+    }
 
     private static IPokemonLocationsApiClient ApiClientThatAcceptsLocations() {
         var client = Substitute.For<IPokemonLocationsApiClient>();
@@ -82,8 +82,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostValidPngReturns201WithFileOnDiskAndDbRow() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -104,8 +104,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostValidJpegReturns201WithJpgExtension() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -121,8 +121,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostValidWebpReturns201WithWebpExtension() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -138,8 +138,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostFileLargerThan10MbReturns400FileTooLarge() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -156,8 +156,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostBodyExceedingMaxRequestBodySizeIsRejectedByFramework() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -177,8 +177,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostUnsupportedMimeReturns400() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -191,8 +191,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostNonExistentLocationReturns404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         apiClient.ExistsAsync(Arg.Any<string>()).Returns(false);
         var factory = CreateFactory(apiClient);
@@ -207,8 +207,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostWhenAtCapReturns400CapReached() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -227,8 +227,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostCorruptBytesWithValidMimeReturns415() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -243,8 +243,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostDecodeBombReturns400() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -258,8 +258,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostFirstConflictThenSuccessReturns201() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
 
         var mockRepo = Substitute.For<IUserImageRepository>();
         mockRepo.CountForUserAndLocationAsync(Arg.Any<int>(), Arg.Any<int>()).Returns(0);
@@ -274,7 +274,7 @@ public class UserImagesControllerTests {
             });
 
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
-        factory.UserImageRepositoryOverride = mockRepo;
+        factory.Overrides.Current!.UserImageRepository = mockRepo;
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
         using var content = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
@@ -286,8 +286,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task PostBothAttemptsConflictReturns409AndCleansFile() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
 
         var mockRepo = Substitute.For<IUserImageRepository>();
         mockRepo.CountForUserAndLocationAsync(Arg.Any<int>(), Arg.Any<int>()).Returns(0);
@@ -295,7 +295,7 @@ public class UserImagesControllerTests {
             .Do(_ => throw new Npgsql.PostgresException("conflict", "ERROR", "ERROR", "40001"));
 
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
-        factory.UserImageRepositoryOverride = mockRepo;
+        factory.Overrides.Current!.UserImageRepository = mockRepo;
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
         using var content = MakeMultipart(ValidPngBytes(), "shot.png", "image/png");
@@ -306,15 +306,15 @@ public class UserImagesControllerTests {
             (await ReadJsonAsync(response)).GetProperty("error").GetString());
         await mockRepo.Received(2).AddAsync(Arg.Any<UserImage>(), Arg.Any<int>());
 
-        var userId = await GetUserIdAsync(postgresFixture.ConnectionString, "red@example.com");
+        var userId = await GetUserIdAsync(fixture.PostgresConnectionString, "red@example.com");
         var userDir = Path.Combine(factory.UploadRoot, userId.ToString());
         Assert.False(Directory.Exists(userDir) && Directory.EnumerateFiles(userDir).Any());
     }
 
     [Fact]
     public async Task DeleteOwnedImageReturns204AndRemovesRowAndFile() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -329,14 +329,17 @@ public class UserImagesControllerTests {
         var del = await client.DeleteAsync($"/api/me/locations/1/images/{imageId}");
 
         Assert.Equal(HttpStatusCode.NoContent, del.StatusCode);
-        Assert.False(Directory.EnumerateFiles(factory.UploadRoot, "*", SearchOption.AllDirectories).Any());
+        var userId = await GetUserIdAsync(fixture.PostgresConnectionString, "red@example.com");
+        var userDir = Path.Combine(factory.UploadRoot, userId.ToString());
+        Assert.False(Directory.Exists(userDir)
+            && Directory.EnumerateFiles(userDir, "*", SearchOption.AllDirectories).Any());
     }
 
     [Fact]
     public async Task DeleteAnotherUsersImageReturns404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(fixture.PostgresConnectionString, "blue@example.com", "squirtle1", "Blue");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
 
         var redClient = AuthorizedClient(factory, "red@example.com", "pikachu123");
@@ -354,8 +357,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task DeleteIsIdempotentForMissingImage() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -367,8 +370,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task GetOwnedImageReturns200WithCorrectContentTypeAndBytes() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -387,9 +390,9 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task GetAnotherUsersImageReturns404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
-        await SeedUserAsync(postgresFixture.ConnectionString, "blue@example.com", "squirtle1", "Blue");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
+        await SeedUserAsync(fixture.PostgresConnectionString, "blue@example.com", "squirtle1", "Blue");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
 
         var redClient = AuthorizedClient(factory, "red@example.com", "pikachu123");
@@ -407,8 +410,8 @@ public class UserImagesControllerTests {
 
     [Fact]
     public async Task GetWhenFileDeletedFromDiskReturns404() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsLocations());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 

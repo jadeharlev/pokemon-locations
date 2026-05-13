@@ -8,12 +8,10 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class WeatherControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
+    private readonly WebServerFixture fixture;
 
-    public WeatherControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
+    public WeatherControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
     }
 
     private static Planet TestVulcan() => new(
@@ -25,14 +23,14 @@ public class WeatherControllerTests {
         Description: "Hot desert planet.",
         ImageUrl: "/images/planets/vulcan.jpg");
 
-    private PokemonLocationsWebServerFactory CreateFactory(FakeStarTrekWeatherApiClient weather) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
-            WeatherClient = weather
-        };
+    private PokemonLocationsWebServerFactory CreateFactory(FakeStarTrekWeatherApiClient weather) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides { WeatherClient = weather };
+        return fixture.Factory;
+    }
 
     private async Task<HttpClient> AuthorizedClientAsync(PokemonLocationsWebServerFactory factory) {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
         return client;
@@ -40,7 +38,7 @@ public class WeatherControllerTests {
 
     [Fact]
     public async Task GetAllReturns401WithoutBasicHeader() {
-        using var factory = CreateFactory(new FakeStarTrekWeatherApiClient());
+        var factory = CreateFactory(new FakeStarTrekWeatherApiClient());
         var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/planets");
@@ -51,7 +49,7 @@ public class WeatherControllerTests {
     [Fact]
     public async Task GetAllReturnsPlanetsFromUpstream() {
         var weather = new FakeStarTrekWeatherApiClient(TestVulcan());
-        using var factory = CreateFactory(weather);
+        var factory = CreateFactory(weather);
         var client = await AuthorizedClientAsync(factory);
 
         var response = await client.GetAsync("/api/planets");
@@ -66,7 +64,7 @@ public class WeatherControllerTests {
     [Fact]
     public async Task GetByNameReturns404WhenUpstreamMissing() {
         var weather = new FakeStarTrekWeatherApiClient();
-        using var factory = CreateFactory(weather);
+        var factory = CreateFactory(weather);
         var client = await AuthorizedClientAsync(factory);
 
         var response = await client.GetAsync("/api/planets/Vulcan");
@@ -76,7 +74,7 @@ public class WeatherControllerTests {
 
     [Fact]
     public async Task GetImageReturns401WithoutBasicHeader() {
-        using var factory = CreateFactory(new FakeStarTrekWeatherApiClient());
+        var factory = CreateFactory(new FakeStarTrekWeatherApiClient());
         var client = factory.CreateClient();
 
         var response = await client.GetAsync("/api/planets/images/vulcan.jpg");
@@ -89,7 +87,7 @@ public class WeatherControllerTests {
         var weather = new FakeStarTrekWeatherApiClient();
         var bytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x01, 0x02, 0x03 };
         weather.Images["vulcan.jpg"] = (bytes, "image/jpeg");
-        using var factory = CreateFactory(weather);
+        var factory = CreateFactory(weather);
         var client = await AuthorizedClientAsync(factory);
 
         var response = await client.GetAsync("/api/planets/images/vulcan.jpg");
@@ -103,7 +101,7 @@ public class WeatherControllerTests {
     [Fact]
     public async Task GetImageReturns404WhenUpstreamMissing() {
         var weather = new FakeStarTrekWeatherApiClient();
-        using var factory = CreateFactory(weather);
+        var factory = CreateFactory(weather);
         var client = await AuthorizedClientAsync(factory);
 
         var response = await client.GetAsync("/api/planets/images/notreal.jpg");
@@ -119,7 +117,7 @@ public class WeatherControllerTests {
     [InlineData("..jpg")]
     public async Task GetImageReturns400ForUnsafeFileName(string encodedFileName) {
         var weather = new FakeStarTrekWeatherApiClient();
-        using var factory = CreateFactory(weather);
+        var factory = CreateFactory(weather);
         var client = await AuthorizedClientAsync(factory);
 
         var response = await client.GetAsync($"/api/planets/images/{encodedFileName}");

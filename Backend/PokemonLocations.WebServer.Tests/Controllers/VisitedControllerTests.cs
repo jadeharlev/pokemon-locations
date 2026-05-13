@@ -8,18 +8,16 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class VisitedControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
+    private readonly WebServerFixture fixture;
 
-    public VisitedControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
+    public VisitedControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
     }
 
-    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
-            ApiClient = apiClient
-        };
+    private PokemonLocationsWebServerFactory CreateFactory(IPokemonLocationsApiClient apiClient) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides { ApiClient = apiClient };
+        return fixture.Factory;
+    }
 
     private static IPokemonLocationsApiClient ApiClientThatAcceptsEverything() {
         var client = Substitute.For<IPokemonLocationsApiClient>();
@@ -49,8 +47,8 @@ public class VisitedControllerTests {
 
     [Fact]
     public async Task PutBuildingReturns204ForKnownBuilding() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         apiClient.ExistsAsync("/locations/3/buildings/7").Returns(true);
         var factory = CreateFactory(apiClient);
@@ -64,8 +62,8 @@ public class VisitedControllerTests {
 
     [Fact]
     public async Task PutBuildingReturns404ForUnknownBuilding() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         apiClient.ExistsAsync(Arg.Any<string>()).Returns(false);
         var factory = CreateFactory(apiClient);
@@ -78,8 +76,8 @@ public class VisitedControllerTests {
 
     [Fact]
     public async Task PutBuildingIsIdempotent() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsEverything());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
 
@@ -91,8 +89,8 @@ public class VisitedControllerTests {
 
     [Fact]
     public async Task DeleteBuildingReturns204AndIsIdempotent() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var factory = CreateFactory(ApiClientThatAcceptsEverything());
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");
         await client.PutAsync("/api/me/visited/buildings/1/2", content: null);
@@ -106,8 +104,8 @@ public class VisitedControllerTests {
 
     [Fact]
     public async Task DeleteBuildingDoesNotCallApi() {
-        await ResetUsersAsync(postgresFixture.ConnectionString);
-        await SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await ResetUsersAsync(fixture.PostgresConnectionString);
+        await SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         var factory = CreateFactory(apiClient);
         var client = AuthorizedClient(factory, "red@example.com", "pikachu123");

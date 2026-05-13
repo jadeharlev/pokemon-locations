@@ -15,16 +15,12 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class AccountControllerTests {
-    private readonly PostgresFixture postgresFixture;
-    private readonly RedisFixture redisFixture;
-    private readonly PokemonLocationsWebServerFactory factory;
+    private readonly WebServerFixture fixture;
+    private PokemonLocationsWebServerFactory factory => fixture.Factory;
 
-    public AccountControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        this.redisFixture = redisFixture;
-        factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString,
-            redisFixture.ConnectionString);
+    public AccountControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
+        fixture.Factory.Overrides.Current = new TestServiceOverrides();
     }
 
     [Fact]
@@ -45,7 +41,7 @@ public class AccountControllerTests {
         Assert.Equal("Red", body.GetProperty("displayName").GetString());
         Assert.Equal("bulbasaur", body.GetProperty("theme").GetString());
 
-        await using var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
         var repository = new UserRepository(dataSource);
         var stored = await repository.GetByEmailAsync("red@example.com");
         Assert.NotNull(stored);
@@ -203,7 +199,7 @@ public class AccountControllerTests {
         var response = await client.DeleteAsync("/account");
 
         Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
-        await using var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
         var repository = new UserRepository(dataSource);
         Assert.Null(await repository.GetByEmailAsync("red@example.com"));
     }
@@ -227,7 +223,7 @@ public class AccountControllerTests {
         var response = await client.DeleteAsync("/account");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        await using var dataSource = NpgsqlDataSource.Create(postgresFixture.ConnectionString);
+        await using var dataSource = NpgsqlDataSource.Create(fixture.PostgresConnectionString);
         var repository = new UserRepository(dataSource);
         Assert.NotNull(await repository.GetByEmailAsync("red@example.com"));
     }
@@ -307,16 +303,18 @@ public class AccountControllerTests {
     private static Planet StubPlanet(string name) =>
         new(name, "TestSystem", 1.0, 50.0, -10.0, "test", "");
 
-    private PokemonLocationsWebServerFactory FactoryWithPlanets(params string[] names) =>
-        new(postgresFixture.ConnectionString, redisFixture.ConnectionString) {
+    private PokemonLocationsWebServerFactory FactoryWithPlanets(params string[] names) {
+        fixture.Factory.Overrides.Current = new TestServiceOverrides {
             WeatherClient = new FakeStarTrekWeatherApiClient(names.Select(StubPlanet).ToArray())
         };
+        return fixture.Factory;
+    }
 
     [Fact]
     public async Task UpdatePermanentPlanetReturns204AndPersists() {
         await ResetUsersAsync();
         await SeedUserAsync("red@example.com", "pikachu123", "Red");
-        using var custom = FactoryWithPlanets("Vulcan", "Risa");
+        var custom = FactoryWithPlanets("Vulcan", "Risa");
         var client = custom.CreateClient();
         client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
 
@@ -333,7 +331,7 @@ public class AccountControllerTests {
     public async Task UpdatePermanentPlanetReturns400ForUnknownPlanet() {
         await ResetUsersAsync();
         await SeedUserAsync("red@example.com", "pikachu123", "Red");
-        using var custom = FactoryWithPlanets("Vulcan");
+        var custom = FactoryWithPlanets("Vulcan");
         var client = custom.CreateClient();
         client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
 
@@ -368,12 +366,12 @@ public class AccountControllerTests {
 
     [Fact]
     public async Task DeleteAccountAlsoRemovesUploadDirectory() {
-        await TestHelpers.ResetUsersAsync(postgresFixture.ConnectionString);
-        await TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, "red@example.com", "pikachu123", "Red");
+        await TestHelpers.ResetUsersAsync(fixture.PostgresConnectionString);
+        await TestHelpers.SeedUserAsync(fixture.PostgresConnectionString, "red@example.com", "pikachu123", "Red");
         var apiClient = Substitute.For<IPokemonLocationsApiClient>();
         apiClient.ExistsAsync(Arg.Any<string>()).Returns(true);
-        var factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString, redisFixture.ConnectionString) { ApiClient = apiClient };
+        fixture.Factory.Overrides.Current = new TestServiceOverrides { ApiClient = apiClient };
+        var factory = fixture.Factory;
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = BasicHeader("red@example.com", "pikachu123");
 
@@ -386,7 +384,7 @@ public class AccountControllerTests {
             Assert.Equal(HttpStatusCode.Created, post.StatusCode);
         }
 
-        var userId = await GetUserIdAsync(postgresFixture.ConnectionString, "red@example.com");
+        var userId = await GetUserIdAsync(fixture.PostgresConnectionString, "red@example.com");
         var userDir = Path.Combine(factory.UploadRoot, userId.ToString());
         Assert.True(Directory.Exists(userDir));
 
@@ -397,8 +395,8 @@ public class AccountControllerTests {
     }
 
     private Task SeedUserAsync(string email, string password, string displayName) =>
-        TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, email, password, displayName);
+        TestHelpers.SeedUserAsync(fixture.PostgresConnectionString, email, password, displayName);
 
     private Task ResetUsersAsync() =>
-        TestHelpers.ResetUsersAsync(postgresFixture.ConnectionString);
+        TestHelpers.ResetUsersAsync(fixture.PostgresConnectionString);
 }

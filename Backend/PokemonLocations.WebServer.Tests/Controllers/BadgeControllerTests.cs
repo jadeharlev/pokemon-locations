@@ -7,14 +7,12 @@ namespace PokemonLocations.WebServer.Tests.Controllers;
 
 [Collection("PostgresAndRedis")]
 public class BadgeControllerTests {
-    private readonly PostgresFixture postgresFixture;
+    private readonly WebServerFixture fixture;
     private readonly PokemonLocationsWebServerFactory factory;
 
-    public BadgeControllerTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        this.postgresFixture = postgresFixture;
-        factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString,
-            redisFixture.ConnectionString);
+    public BadgeControllerTests(WebServerFixture fixture) {
+        this.fixture = fixture;
+        factory = fixture.Factory;
     }
 
     [Fact]
@@ -179,8 +177,8 @@ public class BadgeControllerTests {
     }
 
     private Task SeedUserAsync(string email, string password, string displayName) =>
-        TestHelpers.SeedUserAsync(postgresFixture.ConnectionString, email, password, displayName);
+        TestHelpers.SeedUserAsync(fixture.PostgresConnectionString, email, password, displayName);
 
     private Task ResetUsersAsync() =>
-        TestHelpers.ResetUsersAsync(postgresFixture.ConnectionString);
+        TestHelpers.ResetUsersAsync(fixture.PostgresConnectionString);
 }

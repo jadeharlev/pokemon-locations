@@ -11,12 +11,16 @@ public class RedisFixture : IAsyncLifetime {
     public string ConnectionString => connectionString;
 
     public async Task InitializeAsync() {
-        var container = await sharedContainer.Value;
-        var db = Interlocked.Increment(ref nextDatabase);
-        connectionString = $"{container.GetConnectionString()},defaultDatabase={db}";
+        connectionString = await AllocateAsync();
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
+
+    internal static async Task<string> AllocateAsync() {
+        var container = await sharedContainer.Value;
+        var db = Interlocked.Increment(ref nextDatabase);
+        return $"{container.GetConnectionString()},defaultDatabase={db}";
+    }
 
     private static async Task<RedisContainer> StartSharedContainerAsync() {
         var builder = new RedisBuilder()

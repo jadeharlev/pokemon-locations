@@ -7,10 +7,8 @@ namespace PokemonLocations.WebServer.Tests;
 public class StaticPagesTests {
     private readonly PokemonLocationsWebServerFactory factory;
 
-    public StaticPagesTests(PostgresFixture postgresFixture, RedisFixture redisFixture) {
-        factory = new PokemonLocationsWebServerFactory(
-            postgresFixture.ConnectionString,
-            redisFixture.ConnectionString);
+    public StaticPagesTests(WebServerFixture fixture) {
+        factory = fixture.Factory;
     }
 
     [Fact]

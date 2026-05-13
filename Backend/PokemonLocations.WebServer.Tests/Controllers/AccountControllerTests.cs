@@ -13,7 +13,7 @@ using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
 namespace PokemonLocations.WebServer.Tests.Controllers;
 
-[Collection("PostgresAndRedis")]
+[Collection("WebServer2")]
 public class AccountControllerTests {
     private readonly WebServerFixture fixture;
     private PokemonLocationsWebServerFactory factory => fixture.Factory;

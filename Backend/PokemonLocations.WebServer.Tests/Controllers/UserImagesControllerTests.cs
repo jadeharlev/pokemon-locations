@@ -8,7 +8,7 @@ using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
 namespace PokemonLocations.WebServer.Tests.Controllers;
 
-[Collection("PostgresAndRedis")]
+[Collection("WebServer1")]
 public class UserImagesControllerTests {
     private readonly WebServerFixture fixture;
 

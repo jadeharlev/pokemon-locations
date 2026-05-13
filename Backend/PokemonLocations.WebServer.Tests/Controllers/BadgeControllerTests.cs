@@ -5,7 +5,7 @@ using static PokemonLocations.WebServer.Tests.Infrastructure.TestHelpers;
 
 namespace PokemonLocations.WebServer.Tests.Controllers;
 
-[Collection("PostgresAndRedis")]
+[Collection("WebServer4")]
 public class BadgeControllerTests {
     private readonly WebServerFixture fixture;
     private readonly PokemonLocationsWebServerFactory factory;

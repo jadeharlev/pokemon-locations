@@ -26,24 +26,20 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
     public PokemonLocationsWebServerFactory(string postgresConnectionString, string redisConnectionString) {
         this.postgresConnectionString = postgresConnectionString;
         this.redisConnectionString = redisConnectionString;
-        Environment.SetEnvironmentVariable("ConnectionStrings__Postgres", postgresConnectionString);
-        Environment.SetEnvironmentVariable("ConnectionStrings__Redis", redisConnectionString);
-        Environment.SetEnvironmentVariable("Jwt__Key", JwtKey);
-        Environment.SetEnvironmentVariable("Jwt__Issuer", JwtIssuer);
-        Environment.SetEnvironmentVariable("Jwt__Audience", JwtAudience);
-        Environment.SetEnvironmentVariable("PokemonLocationsApi__BaseUrl", "http://api.test");
-        Environment.SetEnvironmentVariable("StarTrekWeatherApi__BaseUrl", "http://weather.test");
-        Environment.SetEnvironmentVariable("StarTrekWeatherApi__Username", "test");
-        Environment.SetEnvironmentVariable("StarTrekWeatherApi__Password", "test");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseEnvironment("Development");
-        builder.ConfigureAppConfiguration((_, config) => {
-            config.AddInMemoryCollection(new Dictionary<string, string?> {
-                ["UserImages:UploadRoot"] = UploadRoot
-            });
-        });
+        builder.UseSetting("ConnectionStrings:Postgres", postgresConnectionString);
+        builder.UseSetting("ConnectionStrings:Redis", redisConnectionString);
+        builder.UseSetting("Jwt:Key", JwtKey);
+        builder.UseSetting("Jwt:Issuer", JwtIssuer);
+        builder.UseSetting("Jwt:Audience", JwtAudience);
+        builder.UseSetting("PokemonLocationsApi:BaseUrl", "http://api.test");
+        builder.UseSetting("StarTrekWeatherApi:BaseUrl", "http://weather.test");
+        builder.UseSetting("StarTrekWeatherApi:Username", "test");
+        builder.UseSetting("StarTrekWeatherApi:Password", "test");
+        builder.UseSetting("UserImages:UploadRoot", UploadRoot);
         builder.ConfigureTestServices(services => {
             services.AddSingleton(Overrides);
             OverrideWithFallback<IPokemonLocationsApiClient>(services, a => a.ApiClient);

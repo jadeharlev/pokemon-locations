@@ -3,7 +3,7 @@ using PokemonLocations.WebServer.Tests.Infrastructure;
 
 namespace PokemonLocations.WebServer.Tests;
 
-[Collection("PostgresAndRedis")]
+[Collection("WebServer4")]
 public class HealthCheckTests {
     private readonly PokemonLocationsWebServerFactory factory;
 

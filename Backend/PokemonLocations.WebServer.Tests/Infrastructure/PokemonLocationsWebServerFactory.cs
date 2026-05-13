@@ -17,6 +17,8 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
     public IPokemonLocationsApiClient? ApiClient { get; init; }
     public IStarTrekWeatherApiClient? WeatherClient { get; init; }
     public IUserImageRepository? UserImageRepositoryOverride { get; set; }
+    public int? UploadPermitLimit { get; init; }
+    public int? UploadWindowSeconds { get; init; }
 
     public string UploadRoot { get; } = Path.Combine(
         Path.GetTempPath(),
@@ -35,9 +37,16 @@ public class PokemonLocationsWebServerFactory : WebApplicationFactory<Program> {
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
         builder.UseEnvironment("Development");
         builder.ConfigureAppConfiguration((_, config) => {
-            config.AddInMemoryCollection(new Dictionary<string, string?> {
+            var values = new Dictionary<string, string?> {
                 ["UserImages:UploadRoot"] = UploadRoot
-            });
+            };
+            if (UploadPermitLimit is int permit) {
+                values["RateLimits:Upload:PermitLimit"] = permit.ToString();
+            }
+            if (UploadWindowSeconds is int window) {
+                values["RateLimits:Upload:WindowSeconds"] = window.ToString();
+            }
+            config.AddInMemoryCollection(values);
         });
         if (ApiClient is not null) {
             builder.ConfigureTestServices(services => {

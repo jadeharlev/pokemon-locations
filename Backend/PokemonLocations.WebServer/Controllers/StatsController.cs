@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PokemonLocations.WebServer.Authentication;
 using PokemonLocations.WebServer.Database.Repositories;
+using PokemonLocations.WebServer.Models.Responses;
 
 namespace PokemonLocations.WebServer.Controllers;
 
@@ -40,14 +41,12 @@ public class StatsController : ControllerBase
         var max = await userRepository.BumpAndGetMaxStatsAsync(
             userId, gymsComplete, locationsVisited, buildingsVisited);
 
-        return Ok(new
-        {
+        return Ok(new StatsResponse(
             gymsComplete,
             locationsVisited,
             buildingsVisited,
-            maxGymsComplete = max.MaxGymsComplete,
-            maxLocationsVisited = max.MaxLocationsVisited,
-            maxBuildingsVisited = max.MaxBuildingsVisited
-        });
+            max.MaxGymsComplete,
+            max.MaxLocationsVisited,
+            max.MaxBuildingsVisited));
     }
 }

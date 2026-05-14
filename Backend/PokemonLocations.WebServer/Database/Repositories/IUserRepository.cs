@@ -9,4 +9,6 @@ public interface IUserRepository {
     Task DeleteAsync(int userId);
     Task UpdateThemeAsync(int userId, string theme);
     Task UpdatePermanentPlanetAsync(int userId, string? planetName);
+    Task<(int MaxGymsComplete, int MaxLocationsVisited, int MaxBuildingsVisited)>
+        BumpAndGetMaxStatsAsync(int userId, int gymsComplete, int locationsVisited, int buildingsVisited);
 }

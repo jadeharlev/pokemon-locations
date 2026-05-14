@@ -79,4 +79,22 @@ public class UserRepository : IUserRepository {
             "UPDATE users SET permanent_planet_name = @PlanetName WHERE user_id = @UserId",
             new { UserId = userId, PlanetName = planetName });
     }
+
+    public async Task<(int MaxGymsComplete, int MaxLocationsVisited, int MaxBuildingsVisited)>
+        BumpAndGetMaxStatsAsync(int userId, int gymsComplete, int locationsVisited, int buildingsVisited) {
+        await using var connection = await dataSource.OpenConnectionAsync();
+        return await connection.QuerySingleAsync<(int, int, int)>(
+            @"UPDATE users
+                 SET max_gyms_complete     = GREATEST(max_gyms_complete,     @GymsComplete),
+                     max_locations_visited = GREATEST(max_locations_visited, @LocationsVisited),
+                     max_buildings_visited = GREATEST(max_buildings_visited, @BuildingsVisited)
+               WHERE user_id = @UserId
+              RETURNING max_gyms_complete, max_locations_visited, max_buildings_visited",
+            new {
+                UserId = userId,
+                GymsComplete = gymsComplete,
+                LocationsVisited = locationsVisited,
+                BuildingsVisited = buildingsVisited
+            });
+    }
 }

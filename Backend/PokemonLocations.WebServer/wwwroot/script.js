@@ -680,84 +680,17 @@ let currentStats = {
     buildingsVisited: 0
 };
 
+// Max-ever values from the server. Theme unlocks check these so a theme
+// stays unlocked even if current progress drops below the threshold (e.g.
+// the user unchecks a gym badge after earning Dragonite).
+let maxStats = {
+    gymsComplete: 0,
+    locationsVisited: 0,
+    buildingsVisited: 0
+};
 
-const UNLOCKED_THEMES_CACHE_KEY = 'pl.unlockedThemes';
-const CELEBRATED_THEME_UNLOCKS_KEY = 'pl.celebratedThemeUnlocks';
-const PERMANENT_UNLOCKED_THEMES_KEY = 'pl.permanentUnlockedThemes';
 
-
-function getPermanentUnlockedThemes() {
-    const raw = localStorage.getItem(PERMANENT_UNLOCKED_THEMES_KEY);
-
-    if (!raw) {
-        return new Set();
-    }
-
-    try {
-        return new Set(JSON.parse(raw));
-    } catch {
-        return new Set();
-    }
-}
-
-function rememberPermanentUnlockedTheme(theme) {
-    const unlocked = getPermanentUnlockedThemes();
-    unlocked.add(theme);
-
-    localStorage.setItem(
-        PERMANENT_UNLOCKED_THEMES_KEY,
-        JSON.stringify([...unlocked])
-    );
-}
-
-function getCelebratedThemeUnlocks() {
-    const raw = localStorage.getItem(CELEBRATED_THEME_UNLOCKS_KEY);
-
-    if (!raw) {
-        return new Set();
-    }
-
-    try {
-        return new Set(JSON.parse(raw));
-    } catch {
-        return new Set();
-    }
-}
-
-function rememberCelebratedThemeUnlock(theme) {
-    const celebrated = getCelebratedThemeUnlocks();
-    celebrated.add(theme);
-
-    localStorage.setItem(
-        CELEBRATED_THEME_UNLOCKS_KEY,
-        JSON.stringify([...celebrated])
-    );
-}
-
-function getUnlockedThemeSet() {
-    return new Set(getUnlockedThemes());
-}
-
-function rememberUnlockedThemes(unlockedThemes) {
-    sessionStorage.setItem(
-        UNLOCKED_THEMES_CACHE_KEY,
-        JSON.stringify([...unlockedThemes])
-    );
-}
-
-function getRememberedUnlockedThemes() {
-    const raw = sessionStorage.getItem(UNLOCKED_THEMES_CACHE_KEY);
-
-    if (!raw) {
-        return null;
-    }
-
-    try {
-        return new Set(JSON.parse(raw));
-    } catch {
-        return null;
-    }
-}
+let previouslyUnlockedThemes = null;
 
 function showUnlockMessage(theme) {
     const message = document.createElement('div');
@@ -794,31 +727,29 @@ function showConfetti() {
 
 
 function checkForNewThemeUnlocks() {
-    const permanentlyUnlocked = getPermanentUnlockedThemes();
+    const currentlyUnlocked = new Set(
+        THEMES.filter(theme => {
+            const rule = THEME_UNLOCK_RULES[theme];
+            return rule && rule.isUnlocked(maxStats);
+        })
+    );
 
-    const newlyUnlocked = THEMES.filter(theme => {
-        const rule = THEME_UNLOCK_RULES[theme];
+    // First call after page load: seed the snapshot without celebrating
+    // — the user is just returning to themes they already earned.
+    if (previouslyUnlockedThemes === null) {
+        previouslyUnlockedThemes = currentlyUnlocked;
+        updateThemeButtons();
+        return;
+    }
 
-        // Only check unlockable themes.
-        if (!rule) {
-            return false;
+    for (const theme of currentlyUnlocked) {
+        if (!previouslyUnlockedThemes.has(theme)) {
+            showUnlockMessage(theme);
+            showConfetti();
         }
+    }
 
-        // Do not unlock/celebrate the same theme twice.
-        if (permanentlyUnlocked.has(theme)) {
-            return false;
-        }
-
-        // Unlock if the user meets the rule right now.
-        return rule.isUnlocked(currentStats);
-    });
-
-    newlyUnlocked.forEach(theme => {
-        rememberPermanentUnlockedTheme(theme);
-        showUnlockMessage(theme);
-        showConfetti();
-    });
-
+    previouslyUnlockedThemes = currentlyUnlocked;
     updateThemeButtons();
 }
 
@@ -916,21 +847,8 @@ function updateDisplayedThemeName(theme) {
 
 function isThemeUnlocked(theme) {
     const rule = THEME_UNLOCK_RULES[theme];
-
-    // Themes with no rule are unlocked by default.
-    if (!rule) {
-        return true;
-    }
-
-    const permanentlyUnlocked = getPermanentUnlockedThemes();
-
-    // If the user unlocked it before, keep it unlocked.
-    if (permanentlyUnlocked.has(theme)) {
-        return true;
-    }
-
-    // Otherwise check current progress.
-    return rule.isUnlocked(currentStats);
+    if (!rule) return true;
+    return rule.isUnlocked(maxStats);
 }
 
 function getUnlockedThemes() {
@@ -1102,7 +1020,16 @@ async function loadStats() {
         if (!res.ok) return;
         const stats = await res.json();
 
-        currentStats = stats;
+        currentStats = {
+            gymsComplete: stats.gymsComplete,
+            locationsVisited: stats.locationsVisited,
+            buildingsVisited: stats.buildingsVisited
+        };
+        maxStats = {
+            gymsComplete: stats.maxGymsComplete ?? stats.gymsComplete,
+            locationsVisited: stats.maxLocationsVisited ?? stats.locationsVisited,
+            buildingsVisited: stats.maxBuildingsVisited ?? stats.buildingsVisited
+        };
 
         document.getElementById('stat-gyms').textContent = stats.gymsComplete;
         document.getElementById('stat-locations').textContent = stats.locationsVisited;
